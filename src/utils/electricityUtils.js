@@ -358,14 +358,19 @@ export function electricityReportForMonth(monthKey=curMk(),data){
   return{monthKey,cycle,days:cycleDayCount,aircon,tv,sessions,always,logs,top,airconKwh,airconCost,airconHours,tvKwh,tvCost,tvHours,sessionKwh,sessionCost,sessionHours,alwaysKwh,alwaysCost,totalKwh,totalCost,rate};
 }
 export function weatherSettings(data){
+  const hasExplicitLat = data?.weatherLat !== undefined && data?.weatherLat !== '' && !isNaN(parseFloat(data.weatherLat));
+  const hasExplicitLon = data?.weatherLon !== undefined && data?.weatherLon !== '' && !isNaN(parseFloat(data.weatherLon));
+  const hasExplicitElevation = data?.weatherElevation !== undefined && data?.weatherElevation !== '' && !isNaN(parseFloat(data.weatherElevation));
+
   return{
     provider:data?.weatherProvider||DEFAULT_WEATHER.provider,
     label:data?.weatherLabel||DEFAULT_WEATHER.label,
-    lat: isNaN(parseFloat(data?.weatherLat)) ? DEFAULT_WEATHER.lat : parseFloat(data?.weatherLat),
-    lon: isNaN(parseFloat(data?.weatherLon)) ? DEFAULT_WEATHER.lon : parseFloat(data?.weatherLon),
-    elevation: isNaN(parseFloat(data?.weatherElevation)) ? DEFAULT_WEATHER.elevation : parseFloat(data?.weatherElevation),
+    // Privacy: if user never set coordinates, treat as "not set".
+    lat: hasExplicitLat ? parseFloat(data.weatherLat) : NaN,
+    lon: hasExplicitLon ? parseFloat(data.weatherLon) : NaN,
+    elevation: hasExplicitElevation ? parseFloat(data.weatherElevation) : DEFAULT_WEATHER.elevation,
     apiKey:data?.weatherApiKey||''
-  };
+  }; 
 }
 export function weatherSummary(w){
   if(!w)return 'Weather not loaded';
@@ -459,8 +464,20 @@ export function weatherVisual(w){
 }
 export function renderWeatherCard(data,{title='Weather', onRefresh}={}) {
   const w=data.weather,ws=weatherSettings(data);
+  const hasCoords = Number.isFinite(ws.lat) && Number.isFinite(ws.lon);
+
   const card=D('card weather-card'),body=D('cp weather-body'),copy=D('weather-copy'),art=D('weather-art');
   copy.appendChild(h('div',{cls:'lbl'},`${title} · ${ws.label}`));
+
+  if(!hasCoords){
+    copy.appendChild(h('div',{cls:'sf weather-temp'},'--'));
+    copy.appendChild(h('div',{cls:'weather-meta'},'Location not set'));
+    art.appendChild(weatherVisual(null));
+    if(onRefresh) art.appendChild(Btn('bgsm weather-refresh','Set location',onRefresh));
+    body.appendChild(art);body.appendChild(copy);card.appendChild(body);
+    return card;
+  }
+
   copy.appendChild(h('div',{cls:'sf weather-temp'},w?.temp!=null?`${Number(w.temp).toFixed(1)}C`:'--'));
   copy.appendChild(h('div',{cls:'weather-meta'},`${w?weatherSummary(w):'Weather not loaded'}`));
   art.appendChild(weatherVisual(w));

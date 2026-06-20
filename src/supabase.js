@@ -443,10 +443,24 @@ export async function initCloud(){
   const {data: {session}}=await supa.auth.getSession();
   if(session?.user) { set({ user: session.user }); cloudLoad(); }
   // 2. Setup listener for auth events (sign in, sign out, etc)
-  supa.auth.onAuthStateChange((event,session)=>{
+supa.auth.onAuthStateChange((event,session)=>{
     const user=session?.user||null;
     if (user !== S.user) set({ user, syncErr: '', syncSaving: false, fullUserData: {} }); // Clear fullUserData on user change
-    
+
+    // After OAuth, Supabase can leave tokens in the URL hash.
+    // Strip the hash (and query params that might contain oauth artifacts)
+    // right after auth state change to avoid token leakage in browser history.
+    try {
+      const url = new URL(window.location.href);
+      // Remove hash-based oauth tokens
+      if (url.hash) url.hash = '';
+      // Also clear any oauth-related query params if present
+      const oauthKeys = ['access_token','refresh_token','error','error_description'];
+      oauthKeys.forEach(k => url.searchParams.delete(k));
+      // Only replace when changed
+      if (url.toString() !== window.location.href) window.history.replaceState({}, document.title, url.toString());
+    } catch {}
+
     if(!user&&liveChannel){supa.removeChannel(liveChannel);liveChannel=null;cloudLoadedFor='';}
 
     if(user && event==='SIGNED_IN') cloudLoad();
@@ -458,7 +472,11 @@ export async function initCloud(){
 }
 export async function cloudSignIn(provider){
   if(!supa){alert('Supabase did not load. Check your internet connection.');return;}
-  const {error}=await supa.auth.signInWithOAuth({provider,options:{redirectTo:location.href.split('#')[0]}});
+  // Security/privacy: avoid using the current URL (which can be localhost during dev
+  // and may surface OAuth tokens in the address bar). Instead, redirect to the
+  // clean origin (no hash) of the currently running page.
+  const redirectTo = window.location.origin + window.location.pathname;
+  const {error}=await supa.auth.signInWithOAuth({provider,options:{redirectTo}});
   if(error){set({ syncErr: error.message }); alert(error.message);}
 }
 export async function cloudSignOut(){
