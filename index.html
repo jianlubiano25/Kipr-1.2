@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover"/>
+<title>kipr</title>
+
+<!-- PWA / iOS home screen -->
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="kipr"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#1b4d35"/>
+<meta name="description" content="kipr — Filipino household budget tracker for expenses, electricity, and pantry."/>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Inter:wght@400;500;600;700;800&family=Lora:wght@500;600&family=Playfair+Display:wght@600;700&display=swap"/>
+
+<link rel="apple-touch-icon" href="Kipr-icon.png"/>
+<link rel="preload" as="image" href="Kipr-logo-org.webp" fetchpriority="high"/>
+<link rel="preload" as="image" href="Kipr-logo-lightg.webp" fetchpriority="high"/>
+
+<link rel="stylesheet" href="styles.css?v=20260610-nebula-theme"/>
+
+<style>
+  /*
+   * Body starts as the splash background so slow app boots do not flash black.
+   * Once app.js renders, body.app-ready restores the header green around the
+   * safe-area while #app content sits above it.
+   * The home-indicator strip (iPhone bottom) is covered by tabbar's
+   * padding-bottom: max(env(safe-area-inset-bottom,0px),0px) in CSS.
+   */
+  :root { --app-bg: #f4f0ea; --splash-bg: #f5f5f5; }
+  .theme-dark { --app-bg: #15181e; --splash-bg: #15181e; }
+  .theme-nebula { --app-bg: #0B0E1A; --splash-bg: linear-gradient(to bottom right, rgba(81, 56, 226, 0.18), rgba(143, 22, 103, 0.12), rgba(244, 195, 122, 0.18)), #070A14; }
+
+  body { background: var(--splash-bg); }
+  body.app-ready { background: #1b4d35; }
+  #app { background: var(--app-bg); }
+
+  #splash {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--splash-bg);
+    transition: opacity .32s ease, visibility .32s ease;
+  }
+  #splash.splash-hide {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  #splash img {
+    width: min(48vw, 190px);
+    height: auto;
+    display: block;
+    opacity: 1;
+    animation: splashLogoPop .38s cubic-bezier(.2,.9,.25,1.25) both;
+  }
+  #splash.splash-hide img {
+    animation: splashLogoOut .28s ease forwards;
+  }
+  @keyframes splashLogoPop {
+    0% { transform: scale(.9); }
+    62% { transform: scale(1.045); }
+    100% { transform: scale(1); }
+  }
+  @keyframes splashLogoOut {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to { opacity: 0; transform: translateY(-3px) scale(.985); }
+  }
+</style>
+<script>
+  window.__kiprSplashStartedAt = Date.now();
+
+  // 1. Immediate Theme Resolver (Blocking)
+  (function() {
+    try {
+      const SK = 'ipon-v5'; // Storage key from constants
+      const s = localStorage.getItem(SK);
+      if (!s) return;
+      const d = JSON.parse(s);
+      const theme = d?.theme || (d?.darkMode ? 'dark' : 'light');
+
+      // Always set both class and background deterministically.
+      // This is important for nebula splash logo/background selection.
+      document.documentElement.classList.remove('theme-dark', 'theme-nebula');
+      if (theme === 'dark') {
+        document.documentElement.classList.add('theme-dark');
+        document.documentElement.style.backgroundColor = '#15181e';
+      } else if (theme === 'nebula') {
+        document.documentElement.classList.add('theme-nebula');
+        document.documentElement.style.backgroundColor = '#0B0E1A';
+      } else {
+        document.documentElement.style.backgroundColor = '#f4f0ea';
+      }
+    } catch (e) {}
+  })();
+
+  const standaloneQuery = window.matchMedia('(display-mode: standalone)');
+  const setStandaloneMode = () => {
+    document.documentElement.classList.toggle('app-standalone', !!window.navigator.standalone || standaloneQuery.matches);
+  };
+  setStandaloneMode();
+  standaloneQuery.addEventListener?.('change', setStandaloneMode);
+
+  // Emergency Splash Fallback: Ensure splash is removed after 5 seconds no matter what
+  setTimeout(() => { const s = document.getElementById('splash'); if(s) s.classList.add('splash-hide'); }, 5000);
+</script>
+</head>
+<body>
+<div id="splash">
+  <script>
+    // 2. Select logo source before image element is even rendered
+    const isDark = document.documentElement.classList.contains('theme-dark') || document.documentElement.classList.contains('theme-nebula');
+    document.write('<img src="' + (isDark ? 'Kipr-logo-lightg.webp' : 'Kipr-logo-org.webp') + '" alt="kipr">');
+  </script>
+</div>
+
+<div id="app"></div>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="src/main.js?v=20260615-bills-sync-fix" type="module"></script>
+</body>
+</html>
