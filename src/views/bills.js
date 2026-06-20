@@ -1,7 +1,7 @@
 import { S, set, billMonthKeys, preferredBillsMonth } from '../state.js';
 import { h, D, Btn, Sel, metricTiles } from '../utils/domHelpers.js';
 import { fmt, fmt2 } from '../utils/formatters.js';
-import { mk, curMk, mklbl } from '../utils/dateutils.js';
+import { mk, curMk, mklbl } from '../utils/dateUtils.js';
 import { electricityComparisonForMonth, cycleLabel, cycleDays } from '../utils/electricityUtils.js';
 import { delBill, setBillAmt, setBillKwh, toggleBillPaid } from '../actions.js';
 

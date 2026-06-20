@@ -1,7 +1,7 @@
 import { S, set } from '../state.js';
 import { h, D, Btn, DivHdr, swRow, categoryBadge, EmptyCard } from '../utils/domHelpers.js';
 import { fmt2 } from '../utils/formatters.js';
-import { curMk, mklbl } from '../utils/dateutils.js';
+import { curMk, mklbl } from '../utils/dateUtils.js';
 import {
   applianceMonthly, applianceSessionEstimate, applianceSessionDraft, applianceLabel,
   airconProfile, airconModeLabel, alwaysOnSinceLabel, usageCostInRange, overlapRatio
