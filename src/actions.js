@@ -4,7 +4,7 @@ import {
   parseLabels, airconProfile, meralcoReadDay, cycleForDate, activeElapsedMinutes, coffeeAppliance, weatherSettings, weatherStale, noteParts, numIn, expenseTotal, stockCatFromFood, 
   airconSessionFromDates, themeFromData, applianceSessionDraft, alwaysOnStartFor, jclone, getGlobalMetaSettings
 } from './utils/electricityUtils.js';
-import { dateOf, timeOf, timePlus, minutesBetween, curMk, uid, minsOfDay, mk } from './utils/dateutils.js'; 
+import { dateOf, timeOf, timePlus, minutesBetween, curMk, uid, minsOfDay, mk } from './utils/dateUtils.js'; 
 import { h } from './utils/domHelpers.js';
 import { fmt } from './utils/formatters.js';
 import { resizeImage } from './utils/imageUtils.js';

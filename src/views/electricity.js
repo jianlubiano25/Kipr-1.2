@@ -1,7 +1,7 @@
 import { S, set } from '../state.js';
 import { h, D, Btn, BtnI, Sel, DivHdr, Fg, metricTiles, swRow, Sp, auditDateBadge, Inp, dateBadgeClass, dateSpanLabel, logSortDate } from '../utils/domHelpers.js';
 import { fmt, fmt2 } from '../utils/formatters.js';
-import { dateOf, timeOf, fmtTime12, durationLabel, toStr, dtOf, curMk } from '../utils/dateutils.js';
+import { dateOf, timeOf, fmtTime12, durationLabel, toStr, dtOf, curMk } from '../utils/dateUtils.js';
 import {
   meralcoReadDay, cycleForDate, cycleLabel, inCycle, cycleDateRange,
   applianceAlwaysOnEstimate, usageCostInRange, usageKwhInRange, airconModeFrom, airconModeLabel,

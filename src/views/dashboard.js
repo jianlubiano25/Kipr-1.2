@@ -7,7 +7,7 @@ import {
   usageCostInRange, airconModeFrom, timedSessionDraft, applianceSessionDraft, isHomeCookedTx, 
   cycleLabel, renderWeatherCard, noteParts, logSortDate 
 } from '../utils/electricityUtils.js';
-import { curMk, dateOf, durationLabel, toStr } from '../utils/dateutils.js';
+import { curMk, dateOf, durationLabel, toStr } from '../utils/dateUtils.js';
 import { renderCurrentlyOn, renderCoffeeCounter } from '../components/electricity.js';
 import { openEdit, delTx, delHome, delApplianceUsage, updateWeather } from '../actions.js';
 
