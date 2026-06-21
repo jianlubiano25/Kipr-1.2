@@ -28,7 +28,7 @@ export const APPLIANCE_CATS=['Cooling','Kitchen','Network','Security','Computer'
 export const DEFAULT_AIRCON_RATES={startup:1.20,sleepDay:0.62,sleepNight:0.48,ecoDay:0.55,ecoNight:0.42,day:0.85,night:0.58};
 export const AIRCON_MODES=['Sleep','Eco','Normal'];
 export const AIRCON_MODEL_PROFILE={model:'Carrier 42CEA012308',outdoorModel:'38CEA012308',coolingKw:3.33,ratedWatts:1200,minWatts:200,maxWatts:1300,cspf:4.3,doeMonthlyKwh:162};
-export const DEFAULT_WEATHER={provider:'open-meteo',label:'Las Pinas, Metro Manila',lat:14.46139,lon:120.97306,elevation:10,apiKey:''};
+export const DEFAULT_WEATHER={provider:'open-meteo',label:'',lat:'',lon:'',elevation:'',apiKey:''};
 export const LABEL_DEFAULTS={foodSources:FSRC,homeCategories:HCATS,homeStores:STORES,applianceCategories:APPLIANCE_CATS};
 export const DEFAULT_APPLIANCES=[];
 

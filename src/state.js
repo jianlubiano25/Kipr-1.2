@@ -13,7 +13,7 @@ export const INIT={
   airconStartupRate:1.20,airconSleepDayRate:0.62,airconSleepNightRate:0.48,airconEcoDayRate:0.55,airconEcoNightRate:0.42,airconDayRate:0.85,airconNightRate:0.58,airconDefaultSleepMode:true,airconDefaultMode:'sleep',airconDefaultTemp:'29',
   airconModel:AIRCON_MODEL_PROFILE.model,airconTempBaseline:29,airconTempStepPct:7,airconOutdoorBaseline:30,airconOutdoorStepPct:2.5,
   airconOutdoorModel:AIRCON_MODEL_PROFILE.outdoorModel,airconCoolingKw:AIRCON_MODEL_PROFILE.coolingKw,airconRatedWatts:AIRCON_MODEL_PROFILE.ratedWatts,airconMinWatts:AIRCON_MODEL_PROFILE.minWatts,airconMaxWatts:AIRCON_MODEL_PROFILE.maxWatts,airconCspf:AIRCON_MODEL_PROFILE.cspf,airconDoeMonthlyKwh:AIRCON_MODEL_PROFILE.doeMonthlyKwh,
-  weatherProvider:DEFAULT_WEATHER.provider,weatherLabel:DEFAULT_WEATHER.label,weatherLat:'',weatherLon:'',weatherElevation:'',weatherApiKey:'',weather:null,
+  weatherProvider:DEFAULT_WEATHER.provider,weatherLabel:'',weatherLat:'',weatherLon:'',weatherElevation:'',weatherApiKey:'',weather:null,
   labels:LABEL_DEFAULTS,
   tvModel:'Xiaomi TV A Pro 65 2025',tvWatts:175,meralcoReadDay:12,appliances:DEFAULT_APPLIANCES,applianceUsage:[],activeSessions:[],stockAlertDismissed:'', // These are part of INIT for a single profile
   activeProfileId: 'main', // Default for initial load, will be overwritten by meta|settings
@@ -289,11 +289,11 @@ export function migrate(d) {
   if(!d.airconModel)d.airconModel=AIRCON_MODEL_PROFILE.model;if(!d.airconTempBaseline)d.airconTempBaseline=29;if(!d.airconTempStepPct)d.airconTempStepPct=7;if(!d.airconOutdoorBaseline)d.airconOutdoorBaseline=30;if(!d.airconOutdoorStepPct)d.airconOutdoorStepPct=2.5;
   if(!d.airconOutdoorModel)d.airconOutdoorModel=AIRCON_MODEL_PROFILE.outdoorModel;if(!d.airconCoolingKw)d.airconCoolingKw=AIRCON_MODEL_PROFILE.coolingKw;if(!d.airconRatedWatts)d.airconRatedWatts=AIRCON_MODEL_PROFILE.ratedWatts;if(!d.airconMinWatts)d.airconMinWatts=AIRCON_MODEL_PROFILE.minWatts;if(!d.airconMaxWatts)d.airconMaxWatts=AIRCON_MODEL_PROFILE.maxWatts;if(!d.airconCspf)d.airconCspf=AIRCON_MODEL_PROFILE.cspf;if(!d.airconDoeMonthlyKwh)d.airconDoeMonthlyKwh=AIRCON_MODEL_PROFILE.doeMonthlyKwh;
   if(!d.weatherProvider)d.weatherProvider=DEFAULT_WEATHER.provider;
-  if(!d.weatherLabel)d.weatherLabel=DEFAULT_WEATHER.label;
+  if(!d.weatherLabel)d.weatherLabel='';
   // Leave coordinates unset by default (privacy). If user explicitly sets coordinates, keep them.
   if(d.weatherLat===undefined||d.weatherLat===null||d.weatherLat==='') d.weatherLat='';
   if(d.weatherLon===undefined||d.weatherLon===null||d.weatherLon==='') d.weatherLon='';
-  if(!d.weatherElevation)d.weatherElevation=DEFAULT_WEATHER.elevation;
+  if(!d.weatherElevation)d.weatherElevation='';
   if(d.darkMode===undefined)d.darkMode=false;
   if(!d.theme)d.theme=d.darkMode?'dark':'light';
   if(!['light','dark','nebula'].includes(d.theme))d.theme=d.darkMode?'dark':'light';
