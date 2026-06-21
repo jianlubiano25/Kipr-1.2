@@ -19,8 +19,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Inter:wght@400;500;600;700;800&family=Lora:wght@500;600&family=Playfair+Display:wght@600;700&display=swap"/>
 
 <link rel="apple-touch-icon" href="Kipr-icon.png"/>
-<link rel="preload" as="image" href="Kipr-logo-org.webp" fetchpriority="high"/>
-<link rel="preload" as="image" href="Kipr-logo-lightg.webp" fetchpriority="high"/>
+
 
 <link rel="stylesheet" href="styles.css?v=20260610-nebula-theme"/>
 
@@ -79,7 +78,7 @@
   window.__kiprSplashStartedAt = Date.now();
 
   // 1. Immediate Theme Resolver (Blocking)
-  (function() {
+(function() {
     try {
       const SK = 'ipon-v5'; // Storage key from constants
       const s = localStorage.getItem(SK);
@@ -90,17 +89,31 @@
       // Always set both class and background deterministically.
       // This is important for nebula splash logo/background selection.
       document.documentElement.classList.remove('theme-dark', 'theme-nebula');
+      let isDark = false;
       if (theme === 'dark') {
         document.documentElement.classList.add('theme-dark');
         document.documentElement.style.backgroundColor = '#15181e';
+        isDark = true;
       } else if (theme === 'nebula') {
         document.documentElement.classList.add('theme-nebula');
         document.documentElement.style.backgroundColor = '#0B0E1A';
+        isDark = true;
       } else {
         document.documentElement.style.backgroundColor = '#f4f0ea';
       }
+
+      // Preload ONLY the logo we are going to render in the splash.
+      // (Theme is app-controlled via localStorage, not prefers-color-scheme.)
+      const logo = isDark ? 'Kipr-logo-lightg.webp' : 'Kipr-logo-org.webp';
+      const l = document.createElement('link');
+      l.rel = 'preload';
+      l.as = 'image';
+      l.href = logo;
+      l.fetchPriority = 'high';
+      document.head.appendChild(l);
     } catch (e) {}
   })();
+
 
   const standaloneQuery = window.matchMedia('(display-mode: standalone)');
   const setStandaloneMode = () => {

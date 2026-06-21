@@ -472,10 +472,20 @@ supa.auth.onAuthStateChange((event,session)=>{
 }
 export async function cloudSignIn(provider){
   if(!supa){alert('Supabase did not load. Check your internet connection.');return;}
-  // Security/privacy: avoid using the current URL (which can be localhost during dev
-  // and may surface OAuth tokens in the address bar). Instead, redirect to the
-  // clean origin (no hash) of the currently running page.
-  const redirectTo = window.location.origin + window.location.pathname;
+
+  // OAuth state mismatches typically happen when `redirectTo` doesn’t exactly
+  // match the origin+path that the OAuth flow started from.
+  // Use origin + path only (no query/hash) and strip anything accidental.
+  let redirectTo = '';
+  try {
+    const u = new URL(window.location.href);
+    u.hash = '';
+    u.search = '';
+    redirectTo = u.origin + u.pathname;
+  } catch {
+    redirectTo = window.location.origin + window.location.pathname;
+  }
+
   const {error}=await supa.auth.signInWithOAuth({provider,options:{redirectTo}});
   if(error){set({ syncErr: error.message }); alert(error.message);}
 }
