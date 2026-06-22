@@ -9,7 +9,7 @@ import {
 } from '../utils/electricityUtils.js';
 import { curMk, dateOf, durationLabel, toStr } from '../utils/dateUtils.js';
 import { renderCurrentlyOn, renderCoffeeCounter } from '../components/electricity.js';
-import { openEdit, delTx, delHome, delApplianceUsage, updateWeather } from '../actions.js';
+import { openEdit, delTx, delHome, delApplianceUsage, delAircon, delTv, updateWeather } from '../actions.js';
 
 const isPhone = () => window.innerWidth <= 768; // Define breakpoint for phone
 
@@ -173,7 +173,7 @@ export function renderDash() {
   const q2 = BtnI('bg bfull', 'reports', 'Reports', () => set({ tab: 'reports' }));
   qa.appendChild(lb); qa.appendChild(q1); qa.appendChild(q2); activitySection.appendChild(qa);
 
-  const mealLogs = (data.transactions || []).filter(isHomeCookedTx).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5); // Card margin handled by global .card
+  const mealLogs = (data.transactions || []).filter(isHomeCookedTx).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7); // Card margin handled by global .card
   if (mealLogs.length) {
     const mc = D('card dash-recent-meals-card'); mc.appendChild(Object.assign(D('section-hdr'), { innerHTML: '<span class="lbl">Recent Meal Logs</span>' }));
     mealLogs.forEach(tx => {
@@ -189,7 +189,12 @@ export function renderDash() {
     activitySection.appendChild(mc);
   }
 
-  const applianceLogs = (data.applianceUsage || []).sort((a, b) => String(logSortDate(b)).localeCompare(String(logSortDate(a)))).slice(0, 5);
+  const allApplianceLogs = [
+    ...(data.applianceUsage || []).map(u => ({ ...u, _logType: 'appliance' })),
+    ...(data.airconUsage || []).map(u => ({ ...u, _logType: 'aircon', category: 'Aircon' })),
+    ...(data.tvUsage || []).map(u => ({ ...u, _logType: 'tv', name: data.tvModel || 'TV', category: 'TV' }))
+  ];
+  const applianceLogs = allApplianceLogs.sort((a, b) => String(logSortDate(b)).localeCompare(String(logSortDate(a)))).slice(0, 7);
   if (applianceLogs.length) { // No margin-bottom here
     const ac = D('card dash-recent-appliances-card'); ac.appendChild(Object.assign(D('section-hdr'), { innerHTML: '<span class="lbl">Recent Appliance Logs</span>' }));
     applianceLogs.forEach(u => {
@@ -199,11 +204,15 @@ export function renderDash() {
       const info = D('meta-line'); info.style.gap = '4px';
       info.appendChild(Sp('bdg bdg-ap', u.category || 'Appliance'));
       info.appendChild(dateBadge(u.date));
-      if (u.minutes) info.appendChild(h('span', { cls: 'meta-clip' }, durationLabel(u.minutes)));
+      if (u.minutes || u.hours) info.appendChild(h('span', { cls: 'meta-clip' }, durationLabel(u.minutes || (u.hours * 60))));
       left.appendChild(info);
       row.appendChild(left);
       row.appendChild(h('span', { cls: 'sf', style: 'font-size:13px;flex-shrink:0' }, fmt2(u.cost)));
-      ac.appendChild(swRow(row, () => openEdit('applianceUsage', u.id), () => delApplianceUsage(u.id)));
+      ac.appendChild(swRow(row, () => openEdit(u._logType === 'aircon' ? 'airconUsage' : u._logType === 'tv' ? 'tvUsage' : 'applianceUsage', u.id), () => {
+        if (u._logType === 'aircon') delAircon(u.id);
+        else if (u._logType === 'tv') delTv(u.id);
+        else delApplianceUsage(u.id);
+      }));
     });
     activitySection.appendChild(ac);
   }

@@ -38,7 +38,7 @@ export const SCREEN_LABELS={dash:'Overview',food:'Food Expenses',home:'Home & To
 // Keys that are truly global and should be stored in meta|settings
 export const GLOBAL_SETTINGS_KEYS = [
   'profiles', 'activeProfileId',
-  'meralcoRate', 'meralcoReadDay',
+  'meralcoRate', 'meralcoReadDay', 'monthlyRates',
   'airconStartupRate', 'airconSleepDayRate', 'airconSleepNightRate',
   'airconEcoDayRate', 'airconEcoNightRate', 'airconDayRate', 'airconNightRate',
   'airconDefaultSleepMode', 'airconDefaultMode', 'airconDefaultTemp',

@@ -9,7 +9,7 @@ export function onStateUpdate(fn) { updateListener = fn; }
 export const INIT={
   schemaVersion:SCHEMA_VERSION,
   balance:0,balanceBase:0,transactions:[],homeExpenses:[],priceItems:[],stocks:[],bills:[],dailyBudget:380,groceryBudget:5000,
-  airconUsage:[],tvUsage:[],meralcoRate:14.3345,
+  airconUsage:[],tvUsage:[],meralcoRate:14.3345,monthlyRates:{},
   airconStartupRate:1.20,airconSleepDayRate:0.62,airconSleepNightRate:0.48,airconEcoDayRate:0.55,airconEcoNightRate:0.42,airconDayRate:0.85,airconNightRate:0.58,airconDefaultSleepMode:true,airconDefaultMode:'sleep',airconDefaultTemp:'29',
   airconModel:AIRCON_MODEL_PROFILE.model,airconTempBaseline:29,airconTempStepPct:7,airconOutdoorBaseline:30,airconOutdoorStepPct:2.5,
   airconOutdoorModel:AIRCON_MODEL_PROFILE.outdoorModel,airconCoolingKw:AIRCON_MODEL_PROFILE.coolingKw,airconRatedWatts:AIRCON_MODEL_PROFILE.ratedWatts,airconMinWatts:AIRCON_MODEL_PROFILE.minWatts,airconMaxWatts:AIRCON_MODEL_PROFILE.maxWatts,airconCspf:AIRCON_MODEL_PROFILE.cspf,airconDoeMonthlyKwh:AIRCON_MODEL_PROFILE.doeMonthlyKwh,
@@ -265,6 +265,7 @@ export function migrate(d) {
   });
 
   if(!d.airconUsage)d.airconUsage=[];if(!d.tvUsage)d.tvUsage=[];if(!d.meralcoRate||d.meralcoRate===12.03)d.meralcoRate=14.3345;
+  if(!d.monthlyRates)d.monthlyRates={};
   if(!d.meralcoReadDay)d.meralcoReadDay=12;
   if(!d.applianceUsage)d.applianceUsage=[];
   if(!d.activeSessions)d.activeSessions=[];

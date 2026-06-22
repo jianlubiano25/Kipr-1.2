@@ -111,6 +111,12 @@ export function airconSessionFromDates(startDt,endDt,mode='sleep',rates=airconRa
   if(sd !== ed) { out.startDate = sd; out.endDate = ed; }
   return out;
 }
+export function meralcoRateForMonth(monthKey, data = S?.data) {
+  if (data?.monthlyRates && data.monthlyRates[monthKey] !== undefined) {
+    return parseFloat(data.monthlyRates[monthKey]);
+  }
+  return parseFloat(data?.meralcoRate) || 14.3345;
+}
 export function applianceMonthly(a,rate=S?.data?.meralcoRate||14.3345){
   const watts=parseFloat(a.watts)||0,qty=parseFloat(a.qty)||1;
   const hours=a.alwaysOn?24:0;
@@ -206,7 +212,8 @@ export function auditApplianceKwhInRange(u,start,end){
 }
 export function meterAudit(data, f){
   const start=auditDateTime(f?.startDate,f?.startTime),end=auditDateTime(f?.endDate,f?.endTime);
-  const startRead=parseFloat(f?.startRead),endRead=parseFloat(f?.endRead),rate=parseFloat(data?.meralcoRate)||14.3345;
+  const mkStr = start ? curMk(start) : curMk();
+  const startRead=parseFloat(f?.startRead),endRead=parseFloat(f?.endRead),rate=meralcoRateForMonth(mkStr, data);
   if(!start||!end||end<=start)return{valid:false,error:'Enter a valid start and end time.'};
   const meterKwh=!isNaN(startRead)&&!isNaN(endRead)?endRead-startRead:0;
   const hours=(end-start)/36e5;
@@ -240,12 +247,13 @@ export function timedSessionDraft(form={},fallbackMinutes=60){
 export function activeElapsedMinutes(s,now=new Date()){return Math.max(1,Math.round((now-new Date(s.startedAt))/60000));}
 export function activeEstimate(s,now=new Date(),data=S?.data){
   const mins=activeElapsedMinutes(s,now);
+  const rate=meralcoRateForMonth(billMonthFromCycle(cycleForDate(now, meralcoReadDay(data))), data);
   if(s.type==='aircon'){
     const session=airconSessionFromDates(new Date(s.startedAt),now,airconModeFrom(s.mode,s.sleepMode),airconRates(data),s.tempC,s.outdoorTemp,data);
-    return{minutes:mins,kwh:session.kwh,cost:session.kwh*(data?.meralcoRate||14.3345)};
+    return{minutes:mins,kwh:session.kwh,cost:session.kwh*rate};
   }
   const watts=parseFloat(s.watts)||0,qty=parseFloat(s.qty)||1,kwh=watts*qty*(mins/60)/1000;
-  return{minutes:mins,kwh,cost:kwh*(data?.meralcoRate||14.3345)};
+  return{minutes:mins,kwh,cost:kwh*rate};
 }
 export function electricityBill(data){
   return (data?.bills||[]).find(b => {
@@ -267,10 +275,11 @@ export function electricityCycleEstimate(cycle,data){
   const tv=(data?.tvUsage||[]).filter(u=>inCycle(u,cycle));
   const applianceSessions=(data?.applianceUsage||[]).filter(u=>inCycle(u,cycle));
   const cr=cycleDateRange(cycle);
+  const rate=meralcoRateForMonth(billMonthFromCycle(cycle), data);
   const airconKwh=aircon.reduce((s,u)=>s+usageKwhInRange(u,cr.start,cr.end),0);
   const tvKwh=tv.reduce((s,u)=>s+usageKwhInRange(u,cr.start,cr.end),0);
   const sessionKwh=applianceSessions.reduce((s,u)=>s+usageKwhInRange(u,cr.start,cr.end),0);
-  const alwaysKwh=(data?.appliances||[]).filter(a=>a.alwaysOn).reduce((s,a)=>s+applianceAlwaysOnEstimate(a,cr.start,cr.end,data?.meralcoRate||14.3345).kwh,0);
+  const alwaysKwh=(data?.appliances||[]).filter(a=>a.alwaysOn).reduce((s,a)=>s+applianceAlwaysOnEstimate(a,cr.start,cr.end,rate).kwh,0);
   const variableKwh=airconKwh+tvKwh+sessionKwh;
 
   const now = new Date();
@@ -301,8 +310,9 @@ export function electricityDailyChart(cycle,data=S?.data,range='cycle'){
     const ds=dateOf(dd),air=usage.filter(u=>u.date===ds),tv=tvUsage.filter(u=>u.date===ds);
     const dayStart=new Date(`${ds}T00:00:00`),dayEnd=new Date(dayStart);dayEnd.setDate(dayEnd.getDate()+1);
     const ap=applianceUsage.filter(u=>overlapRatio(u,dayStart,dayEnd)>0);
+    const rate = meralcoRateForMonth(billMonthFromCycle(cycle), data);
     const alwaysEst=alwaysOn.reduce((s,a)=>{
-      const est=applianceAlwaysOnEstimate(a,dayStart,dayEnd,data?.meralcoRate||14.3345);
+      const est=applianceAlwaysOnEstimate(a,dayStart,dayEnd,rate);
       return{cost:s.cost+est.cost,kwh:s.kwh+est.kwh};
     },{cost:0,kwh:0});
     const airCost=air.reduce((s,u)=>s+u.cost,0),tvCost=tv.reduce((s,u)=>s+u.cost,0),apCost=ap.reduce((s,u)=>s+usageCostInRange(u,dayStart,dayEnd),0);
@@ -327,7 +337,7 @@ export function electricityComparisonForMonth(monthKey,data=S?.data,actualKwh=0)
   return{cycle,est,loggedKwh,diff:actualKwh?Math.abs(est.totalKwh-actualKwh):0};
 }
 export function electricityReportForMonth(monthKey=curMk(),data){
-  const rate=parseFloat(data?.meralcoRate)||14.3345,cycle=billCycleForMonth(monthKey,meralcoReadDay(data)),cycleDayCount=cycleDays(cycle);
+  const rate=meralcoRateForMonth(monthKey, data),cycle=billCycleForMonth(monthKey,meralcoReadDay(data)),cycleDayCount=cycleDays(cycle);
   const aircon=(data?.airconUsage||[]).filter(u=>inCycle(u,cycle));
   const tv=(data?.tvUsage||[]).filter(u=>inCycle(u,cycle));
   const sessions=(data?.applianceUsage||[]).filter(u=>inCycle(u,cycle));

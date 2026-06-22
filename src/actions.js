@@ -2,7 +2,7 @@ import { S, set, setD, sk, sd, migrate, getActiveProfileData } from './state.js'
 import {
   stockFromGrocery, stockFromHome, airconModeFrom, airconSessionFromParts, airconRates, applianceSessionEstimate, foodSources, homeCategories, homeStores, applianceCategories,
   parseLabels, airconProfile, meralcoReadDay, cycleForDate, activeElapsedMinutes, coffeeAppliance, weatherSettings, weatherStale, noteParts, numIn, expenseTotal, stockCatFromFood, 
-  airconSessionFromDates, themeFromData, applianceSessionDraft, alwaysOnStartFor, jclone, getGlobalMetaSettings
+  airconSessionFromDates, themeFromData, applianceSessionDraft, alwaysOnStartFor, jclone, getGlobalMetaSettings, meralcoRateForMonth, billMonthFromCycle
 } from './utils/electricityUtils.js';
 import { dateOf, timeOf, timePlus, minutesBetween, curMk, uid, minsOfDay, mk } from './utils/dateUtils.js'; 
 import { h } from './utils/domHelpers.js';
@@ -79,8 +79,10 @@ export function addAircon(){
   const roomTemp=parseFloat(S.airconF.roomTemp);
   const outdoorTemp=parseFloat(S.airconF.outdoorTemp),outdoorFeels=parseFloat(S.airconF.outdoorFeels),outdoorHumidity=parseFloat(S.airconF.outdoorHumidity);
   const session=airconSessionFromParts(S.airconF.date,S.airconF.start,S.airconF.end,mode,rates,isNaN(tempC)?'':tempC,isNaN(outdoorTemp)?'':outdoorTemp,d);if(!session)return;
-  const cost=session.kwh*d.meralcoRate;
-  const entry={id:uid(),...session,hours:parseFloat(session.hours.toFixed(2)),kwh:session.kwh,cost,rateAtTime:d.meralcoRate,ratesAtTime:rates,tempC:isNaN(tempC)?'':tempC,roomTemp:isNaN(roomTemp)?'':roomTemp,outdoorTemp:isNaN(outdoorTemp)?'':outdoorTemp,outdoorFeels:isNaN(outdoorFeels)?'':outdoorFeels,outdoorHumidity:isNaN(outdoorHumidity)?'':outdoorHumidity,weatherAtTime:d.weather||null,formula:'two-phase-inverter'};
+  const cycle=cycleForDate(new Date(S.airconF.date), meralcoReadDay(d));
+  const rate=meralcoRateForMonth(billMonthFromCycle(cycle), d);
+  const cost=session.kwh*rate;
+  const entry={id:uid(),...session,hours:parseFloat(session.hours.toFixed(2)),kwh:session.kwh,cost,rateAtTime:rate,ratesAtTime:rates,tempC:isNaN(tempC)?'':tempC,roomTemp:isNaN(roomTemp)?'':roomTemp,outdoorTemp:isNaN(outdoorTemp)?'':outdoorTemp,outdoorFeels:isNaN(outdoorFeels)?'':outdoorFeels,outdoorHumidity:isNaN(outdoorHumidity)?'':outdoorHumidity,weatherAtTime:d.weather||null,formula:'two-phase-inverter'};
   setD(d=>({...d,airconUsage:[entry,...(d.airconUsage||[])]}));
   set({airconF:{date:dateOf(new Date()),start:S.airconF.start,end:S.airconF.end,mode,sleepMode:mode==='sleep',tempC:S.airconF.tempC,roomTemp:S.airconF.roomTemp,outdoorTemp:S.airconF.outdoorTemp,outdoorFeels:S.airconF.outdoorFeels,outdoorHumidity:S.airconF.outdoorHumidity},modal:null});
 }
@@ -90,8 +92,10 @@ export function addTv(){
   let mins=em-sm;if(mins<=0)mins+=1440;
   const h=mins/60;
   const d=S.data,watts=parseFloat(d.tvWatts)||175;
-  const kwh=(watts/1000)*h,cost=kwh*d.meralcoRate;
-  const entry={id:uid(),date:S.tvF.date,start:S.tvF.start,end:S.tvF.end,minutes:mins,hours:h,watts,kwh,cost,rateAtTime:d.meralcoRate};
+  const cycle=cycleForDate(new Date(S.tvF.date), meralcoReadDay(d));
+  const rate=meralcoRateForMonth(billMonthFromCycle(cycle), d);
+  const kwh=(watts/1000)*h,cost=kwh*rate;
+  const entry={id:uid(),date:S.tvF.date,start:S.tvF.start,end:S.tvF.end,minutes:mins,hours:h,watts,kwh,cost,rateAtTime:rate};
   setD(d=>({...d,tvUsage:[entry,...(d.tvUsage||[])]}));
   set({tvF:{date:dateOf(new Date()),start:S.tvF.start,end:S.tvF.end},modal:null});
 }
@@ -122,7 +126,9 @@ export function turnOffAlwaysOnAppliance(id){
   setD(d=>{
     const ap=(d.appliances||[]).find(x=>x.id===id);
     if(!ap||!ap.alwaysOn)return d;
-    const start=alwaysOnStartFor(ap,d,now),rate=d.meralcoRate||14.3345;
+    const start=alwaysOnStartFor(ap,d,now);
+    const cycle=cycleForDate(now, meralcoReadDay(d));
+    const rate=meralcoRateForMonth(billMonthFromCycle(cycle), d);
     const entries=alwaysOnUsageEntries(ap,start,now,rate);
     const appliances=(d.appliances||[]).map(x=>x.id===id?{...x,alwaysOn:false,hoursPerDay:0,daysPerMonth:0,sessionMinutes:parseFloat(x.sessionMinutes)||60,alwaysOnSince:'',note:noteParts(x.note,'Turned off '+now.toLocaleString('en-PH',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))}:x);
     return{...d,appliances,applianceUsage:[...entries,...(d.applianceUsage||[])]};
@@ -134,8 +140,10 @@ export function addApplianceUsage(){
   const start=S.applianceSessionF.start||'19:00',end=S.applianceSessionF.end||timePlus(start,parseFloat(ap?.sessionMinutes)||60)||'20:00';
   const minutes=minutesBetween(start,end);
   if(!ap||ap.alwaysOn||!minutes)return;
-  const est=applianceSessionEstimate(ap,minutes,S.data.meralcoRate);
-  const entry={id:uid(),applianceId:ap.id,name:ap.name,category:ap.category,date:S.applianceSessionF.date,start,end,minutes,hours:minutes/60,watts:parseFloat(ap.watts)||0,qty:parseFloat(ap.qty)||1,kwh:est.kwh,cost:est.cost,rateAtTime:S.data.meralcoRate};
+  const cycle=cycleForDate(new Date(S.applianceSessionF.date), meralcoReadDay(S.data));
+  const rate=meralcoRateForMonth(billMonthFromCycle(cycle), S.data);
+  const est=applianceSessionEstimate(ap,minutes,rate);
+  const entry={id:uid(),applianceId:ap.id,name:ap.name,category:ap.category,date:S.applianceSessionF.date,start,end,minutes,hours:minutes/60,watts:parseFloat(ap.watts)||0,qty:parseFloat(ap.qty)||1,kwh:est.kwh,cost:est.cost,rateAtTime:rate};
   setD(d=>({...d,applianceUsage:[entry,...(d.applianceUsage||[])]}));
   set({applianceSessionF:{applianceId:ap.id,date:dateOf(new Date()),start,end:timePlus(start,ap.sessionMinutes||minutes),minutes:String(ap.sessionMinutes||minutes)},modal:null});
 }
@@ -164,7 +172,9 @@ export function startActiveSession(type,opts={}){
 export function cancelActiveSession(id){setD(d=>({...d,activeSessions:(d.activeSessions||[]).filter(s=>s.id!==id)}));}
 export function stopActiveSession(id){
   const active=(S.data.activeSessions||[]).find(s=>s.id===id);if(!active)return;
-  const now=new Date(),rate=S.data.meralcoRate||14.3345;
+  const now=new Date();
+  const cycle=cycleForDate(now, meralcoReadDay(S.data));
+  const rate=meralcoRateForMonth(billMonthFromCycle(cycle), S.data);
   setD(d=>{
     const activeSessions=(d.activeSessions||[]).filter(s=>s.id!==id);
     if(active.type==='aircon'){
@@ -190,14 +200,35 @@ export function stopActiveSession(id){
 export function saveAirSet() {
   const f = S.airSetF;
   const d = S.data;
-  const updates = {
-    meralcoRate: parseFloat(f.rate) || d.meralcoRate || 14.3345,
-    meralcoReadDay: numIn(f.readDay, d.meralcoReadDay || 12, 1, 31),
-    airconDefaultMode: airconModeFrom(f.defaultMode, f.defaultSleep),
-    airconDefaultSleepMode: airconModeFrom(f.defaultMode, f.defaultSleep) === 'sleep',
-    airconDefaultTemp: numIn(f.defaultTemp, 29, 16, 32)
-  };
-  setD(d => ({ ...d, ...updates }));
+  const newRate = parseFloat(f.rate) || d.meralcoRate || 14.3345;
+  const monthKey = f.monthKey || S.billsMk || curMk();
+
+  setD(d => {
+    const monthlyRates = { ...(d.monthlyRates || {}) };
+    monthlyRates[monthKey] = newRate;
+    
+    const newReadDay = numIn(f.readDay, d.meralcoReadDay || 12, 1, 31);
+    const recalculateUsage = (usages) => (usages || []).map(u => {
+       const uCycle = cycleForDate(new Date(u.date || u.startDate || u.startedAt || new Date()), newReadDay);
+       if (billMonthFromCycle(uCycle) === monthKey) {
+           return { ...u, cost: (parseFloat(u.kwh)||0) * newRate, rateAtTime: newRate };
+       }
+       return u;
+    });
+
+    return { 
+      ...d, 
+      meralcoRate: newRate, // update global fallback
+      monthlyRates,
+      meralcoReadDay: newReadDay,
+      airconDefaultMode: airconModeFrom(f.defaultMode, f.defaultSleep),
+      airconDefaultSleepMode: airconModeFrom(f.defaultMode, f.defaultSleep) === 'sleep',
+      airconDefaultTemp: numIn(f.defaultTemp, 29, 16, 32),
+      airconUsage: recalculateUsage(d.airconUsage),
+      tvUsage: recalculateUsage(d.tvUsage),
+      applianceUsage: recalculateUsage(d.applianceUsage)
+    };
+  });
   set({ modal: null });
 }
 export function openAirconProfile(){
@@ -615,16 +646,20 @@ export function saveEdit(){
     const outdoorTemp=parseFloat(dr.outdoorTemp);
     const session=airconSessionFromParts(dr.date||old.date,dr.start||old.start||'22:00',dr.end||old.end||'06:00',mode,rates,isNaN(tempC)?'':tempC,isNaN(outdoorTemp)?'':outdoorTemp,S.data);
     if(!session)return;
-    const newCost=session.kwh*S.data.meralcoRate;
-    setD(d=>({...d,airconUsage:(d.airconUsage||[]).map(x=>x.id===id?{...old,...dr,...session,mode,sleepMode:mode==='sleep',hours:parseFloat(session.hours.toFixed(2)),kwh:session.kwh,cost:newCost,rateAtTime:S.data.meralcoRate,ratesAtTime:rates,tempC:isNaN(tempC)?'':tempC,roomTemp:isNaN(roomTemp)?'':roomTemp,formula:'two-phase-inverter'}:x)}));
+    const cycle=cycleForDate(new Date(dr.date||old.date), meralcoReadDay(S.data));
+    const rate=meralcoRateForMonth(billMonthFromCycle(cycle), S.data);
+    const newCost=session.kwh*rate;
+    setD(d=>({...d,airconUsage:(d.airconUsage||[]).map(x=>x.id===id?{...old,...dr,...session,mode,sleepMode:mode==='sleep',hours:parseFloat(session.hours.toFixed(2)),kwh:session.kwh,cost:newCost,rateAtTime:rate,ratesAtTime:rates,tempC:isNaN(tempC)?'':tempC,roomTemp:isNaN(roomTemp)?'':roomTemp,formula:'two-phase-inverter'}:x)}));
   } else if(t==='tv'){
     const old=(S.data.tvUsage||[]).find(x=>x.id===id);
     if(!dr.start)dr.start=old.start||'19:00';if(!dr.end)dr.end=old.end||timePlus(dr.start,(parseFloat(dr.hours)||1)*60)||'22:00';
     const sm=minsOfDay(dr.start),em=minsOfDay(dr.end);if(isNaN(sm)||isNaN(em))return; // Ensure minsOfDay is used
     let minutes=em-sm;if(minutes<=0)minutes+=1440;
     const hours=minutes/60,watts=parseFloat(dr.watts)||S.data.tvWatts||175;
-    const kwh=(watts/1000)*hours,cost=kwh*S.data.meralcoRate;
-    setD(d=>({...d,tvUsage:(d.tvUsage||[]).map(x=>x.id===id?{...old,...dr,minutes,hours,watts,kwh,cost,rateAtTime:S.data.meralcoRate}:x)}));
+    const cycle=cycleForDate(new Date(dr.date||old.date), meralcoReadDay(S.data));
+    const rate=meralcoRateForMonth(billMonthFromCycle(cycle), S.data);
+    const kwh=(watts/1000)*hours,cost=kwh*rate;
+    setD(d=>({...d,tvUsage:(d.tvUsage||[]).map(x=>x.id===id?{...old,...dr,minutes,hours,watts,kwh,cost,rateAtTime:rate}:x)}));
   } else if(t==='appliance'){
     const old=(S.data.appliances||[]).find(x=>x.id===id);
     const watts=parseFloat(dr.watts)||0,qty=parseFloat(dr.qty)||1;
@@ -646,8 +681,11 @@ export function saveEdit(){
     const minutes=old.span?(parseFloat(dr.minutes)||old.minutes):(minutesBetween(start,end)||parseFloat(dr.minutes)||old.minutes);
     const watts=parseFloat(appliance?.watts)||parseFloat(dr.watts)||old.watts||0;
     const qty=parseFloat(appliance?.qty)||parseFloat(dr.qty)||old.qty||1;
-    const kwh=watts*qty*(minutes/60)/1000,cost=kwh*S.data.meralcoRate;
-    setD(d=>({...d,applianceUsage:(d.applianceUsage||[]).map(x=>x.id===id?{...old,...dr,applianceId:appliance?.id||old.applianceId,name:appliance?.name||dr.name||old.name,category:appliance?.category||old.category,date:old.span?old.date:dr.date,startDate:old.startDate,endDate:old.endDate,span:old.span,start,end,minutes,hours:minutes/60,watts,qty,kwh,cost,rateAtTime:S.data.meralcoRate}:x)}));
+    const dateUsed=old.span?old.date:(dr.date||old.date);
+    const cycle=cycleForDate(new Date(dateUsed), meralcoReadDay(S.data));
+    const rate=meralcoRateForMonth(billMonthFromCycle(cycle), S.data);
+    const kwh=watts*qty*(minutes/60)/1000,cost=kwh*rate;
+    setD(d=>({...d,applianceUsage:(d.applianceUsage||[]).map(x=>x.id===id?{...old,...dr,applianceId:appliance?.id||old.applianceId,name:appliance?.name||dr.name||old.name,category:appliance?.category||old.category,date:dateUsed,startDate:old.startDate,endDate:old.endDate,span:old.span,start,end,minutes,hours:minutes/60,watts,qty,kwh,cost,rateAtTime:rate}:x)}));
   } else if(t==='price'){
     setD(d=>({...d,priceItems:d.priceItems.map(p=>p.id===id?{...p,...dr,price:parseFloat(dr.price)||p.price}:p)}));
   } else if(t==='stock'){
@@ -788,8 +826,10 @@ export function logCoffeeBoil(){
   const ap=coffeeAppliance(S.data);
   const fallback = (S.data.appliances||[]).find(a=>!a.alwaysOn);
   if(!ap) return set({modal:'logAppliance',applianceSessionF:applianceSessionDraft(fallback)});
-  const mins=parseFloat(ap.sessionMinutes)||3,start=timeOf(new Date()),end=timePlus(start,mins),est=applianceSessionEstimate(ap,mins,S.data.meralcoRate);
-  const entry={id:uid(),applianceId:ap.id,name:ap.name,category:ap.category,date:dateOf(new Date()),start,end,minutes:mins,hours:mins/60,watts:parseFloat(ap.watts)||0,qty:parseFloat(ap.qty)||1,kwh:est.kwh,cost:est.cost,rateAtTime:S.data.meralcoRate,note:'Coffee boil'};
+  const cycle=cycleForDate(new Date(), meralcoReadDay(S.data));
+  const rate=meralcoRateForMonth(billMonthFromCycle(cycle), S.data);
+  const mins=parseFloat(ap.sessionMinutes)||3,start=timeOf(new Date()),end=timePlus(start,mins),est=applianceSessionEstimate(ap,mins,rate);
+  const entry={id:uid(),applianceId:ap.id,name:ap.name,category:ap.category,date:dateOf(new Date()),start,end,minutes:mins,hours:mins/60,watts:parseFloat(ap.watts)||0,qty:parseFloat(ap.qty)||1,kwh:est.kwh,cost:est.cost,rateAtTime:rate,note:'Coffee boil'};
   setD(d=>({...d,applianceUsage:[entry,...(d.applianceUsage||[])]}));
 }
 

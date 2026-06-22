@@ -184,7 +184,8 @@ export function renderElectricity() {
     const d = S.data;
     set({
       modal: 'airSet', airSetF: {
-        rate: String(d.meralcoRate || 14.3345),
+        monthKey: billMonthFromCycle(selectedCycle),
+        rate: String(meralcoRateForMonth(billMonthFromCycle(selectedCycle), d)),
         readDay: String(d.meralcoReadDay || 12),
         defaultMode: airconModeFrom(d.airconDefaultMode, d.airconDefaultSleepMode),
         defaultSleep: d.airconDefaultSleepMode !== false,
