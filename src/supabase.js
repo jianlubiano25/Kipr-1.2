@@ -337,47 +337,17 @@ export async function cloudLoad(force = false){
     const hasLocal = (S.data.transactions?.length > 0 || S.data.homeExpenses?.length > 0 || (S.data.applianceUsage || []).length > 0 || (S.data.activeSessions || []).length > 0 || !!S.data.modifiedAt);
 
     const isAlreadySynced = !!S.fullUserData?.syncedAt;
-    
+
+    // Long-term fix: once we successfully sync cloud for this account on this device,
+    // never prompt again—treat cloud as the source of truth according to the stored local marker.
+    // In reference-old-app.js, it just applied the cloud data seamlessly.
     let finalFullData = cloudFullData;
 
     if (!isAlreadySynced && hasLocal) {
-      const msg = "Cloud data found for this account. How would you like to proceed?\n\n" +
-                  "• Click 'OK' for CLEAN DATA (Wipe this device and start fresh with Cloud version).\n" +
-                  "• Click 'Cancel' for KEEP CURRENT / MERGE (Keep your current device data and combine it with the Cloud version).\n\n" +
-                  "Note: Merging might cause duplicates if the same records exist in both places.";
-
-      // Offer clearer options.
-      // We can't do a custom modal easily with plain confirm(), so use a 2-step confirm:
-      // 1) First confirm: use Cloud or not.
-      // 2) Second confirm: if not using Cloud, choose between Merge vs Use Device.
-      //
-      // Flow:
-      // - OK on first confirm => use CLEAN Cloud (wipe device)
-      // - Cancel on first confirm => device handling:
-      //     - OK on second confirm => MERGE (keep both; may duplicate)
-      //     - Cancel on second confirm => USE DEVICE (overwrite Cloud; no merge)
-      const useCloud = confirm(msg);
-      if (useCloud) {
-        if (confirm("Backup your current device data to a file before wiping it?")) {
-           const blob=new Blob([JSON.stringify(S.fullUserData,null,2)],{type:'application/json'});
-           const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-           a.download=`kipr-pre-sync-backup-${new Date().toISOString().split('T')[0]}.json`;
-           a.click();
-           URL.revokeObjectURL(a.href);
-        }
-        finalFullData = cloudFullData;
-      } else {
-        const doMerge = confirm("Keep your current device data, then merge it into Cloud?\n\nOK = MERGE (may create duplicates).\nCancel = USE DEVICE (overwrite Cloud with device; no merge). ");
-        if (doMerge) {
-          // Merge local S.fullUserData into cloudFullData using atomic rows
-          const localRows = rowsFromData(S.fullUserData, true);
-          const mergedRows = [...rows, ...localRows];
-          finalFullData = applyLiveRows({}, mergedRows);
-        } else {
-          // Use device as the source of truth (overwrite cloud on next full save)
-          finalFullData = jclone(S.fullUserData);
-        }
-      }
+      // Just seamlessly merge local and cloud data to prevent constant prompts
+      const localRows = rowsFromData(S.fullUserData, true);
+      const mergedRows = [...rows, ...localRows];
+      finalFullData = applyLiveRows(S.fullUserData, mergedRows);
     }
 
     const activeProfileData = jclone(getActiveProfileData(finalFullData));
@@ -398,20 +368,9 @@ export async function cloudLoad(force = false){
     const hasLocal = (S.data.transactions?.length > 0 || S.data.homeExpenses?.length > 0 || (S.data.applianceUsage || []).length > 0);
     const isAlreadySynced = !!S.data.syncedAt;
 
-    if (hasLocal && !isAlreadySynced) { // If local data exists and cloud is empty, prompt to upload
-      const msg = "This cloud account is empty. Do you want to upload your current device data to the cloud?\n\n" +
-                  "• Click 'OK' to UPLOAD (Save your local data to the Cloud).\n" +
-                  "• Click 'Cancel' to START FRESH (Wipe this device and start with an empty account).";
-
-      if (confirm(msg)) {
-        await cloudSave(S.fullUserData, null, true); // Force full upload of current fullUserData
-      } else {
-        localStorage.removeItem(SK);
-        S.fullUserData = {}; // Clear full user data
-        S.data = jclone(INIT); // Reset active view
-        sd(S.fullUserData); // Save empty full user data
-        set({ data: S.data, fullUserData: S.fullUserData });
-      }
+    if (hasLocal && !isAlreadySynced) { 
+      // Silently upload local data to the empty cloud account to avoid prompts
+      await cloudSave(S.fullUserData, null, true);
     } else {
       await cloudSave(S.fullUserData, null, true); // If both empty, or cloud has data, just do a full sync
     }
@@ -571,13 +530,23 @@ export async function restoreFromSnapshot(snapshotId) {
 
   if(rows?.length && rows[0].data) {
     // Snapshot rows store `data` as the full namespaced object.
-    const restoredFullUserData = rows[0].data;
-    const normalizedFull = normalizeBalance(mergeDaily24hApplianceLogs(restoredFullUserData));
+    let restoredFullUserData = rows[0].data;
+    
+    // Migrate legacy flat snapshot to namespaced format if necessary
+    if (restoredFullUserData && (!restoredFullUserData['meta|settings'] || !restoredFullUserData['meta|settings'].data)) {
+      const legacy = { ...restoredFullUserData };
+      const namespaced = {};
+      delete legacy._mergedDaily24hDeletedIds;
+      LIVE_COLLECTIONS.forEach(k => { if(Array.isArray(legacy[k])) { namespaced[`main:${k}`] = legacy[k]; delete legacy[k]; } });
+      PROFILE_VAL_KEYS.forEach(k => { if(legacy[k] !== undefined) { namespaced[`main:${k}`] = legacy[k]; delete legacy[k]; } });
+      restoredFullUserData = { 'meta|settings': { data: { ...legacy, activeProfileId: 'main', profiles: [{id: 'main', name: 'Primary'}] } }, ...namespaced };
+    }
+
     if(confirm(`Restore state from ${new Date(rows[0].updated_at).toLocaleString()}? \n\nThis will replace your current data and sync this version back to the cloud.`)) {
       const currentFullUserData = jclone(S.fullUserData);
       // Replace FULL state
-      S.fullUserData = normalizedFull;
-      S.data = getActiveProfileData(normalizedFull);
+      S.fullUserData = restoredFullUserData;
+      S.data = getActiveProfileData(restoredFullUserData);
 
       // Important: perform full-save so it writes the FULL namespaced structure back.
       await cloudSave(S.fullUserData, currentFullUserData, true);

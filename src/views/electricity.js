@@ -10,10 +10,12 @@ import {
   alwaysOnSinceLabel, meterAudit, usageDateRange, auditApplianceKwhInRange, cycleDays
 } from '../utils/electricityUtils.js';
 import {
-  turnOffAlwaysOnAppliance, openEdit, delAppliance, 
+  turnOffAlwaysOnAppliance, openEdit, delAppliance,
   delAircon, delTv, delApplianceUsage,
-  stopActiveSession, cancelActiveSession
+  stopActiveSession, cancelActiveSession,
+  startActiveSession
 } from '../actions.js';
+
 import { renderCurrentlyOn } from '../components/electricity.js'; // Corrected path
 
 const isPhone = () => window.innerWidth <= 768; // Define breakpoint for phone
@@ -273,7 +275,20 @@ export function renderElectricity() {
 
   const actions = D('electric-actions-grid'); actions.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px';
   actions.appendChild(Btn('bgfull', '+ Aircon Session', () => { const mode = airconModeFrom(data.airconDefaultMode, data.airconDefaultSleepMode), w = data.weather || {}; set({ modal: 'addAircon', airconF: { ...timedSessionDraft(S.airconF, 480), mode, sleepMode: mode === 'sleep', tempC: data.airconDefaultTemp || S.airconF.tempC || '29', roomTemp: S.airconF.roomTemp || '', outdoorTemp: w.temp ?? S.airconF.outdoorTemp ?? '', outdoorFeels: w.apparent ?? S.airconF.outdoorFeels ?? '', outdoorHumidity: w.humidity ?? S.airconF.outdoorHumidity ?? '' } }); })); // Button margin handled by global .card // No margin-bottom here
-  actions.appendChild(Btn('bgfull', 'Start Aircon', () => startActiveSession('aircon')));
+  actions.appendChild(Btn('bgfull', 'Start Aircon', () => {
+    const mode = airconModeFrom(S.airconF.mode || data.airconDefaultMode, S.airconF.sleepMode || data.airconDefaultSleepMode);
+    const d = {
+      mode,
+      sleepMode: mode === 'sleep',
+      tempC: S.airconF.tempC ?? data.airconDefaultTemp ?? '29',
+      roomTemp: S.airconF.roomTemp ?? '',
+      outdoorTemp: data.weather?.temp ?? S.airconF.outdoorTemp ?? '',
+      outdoorFeels: data.weather?.apparent ?? S.airconF.outdoorFeels ?? '',
+      outdoorHumidity: data.weather?.humidity ?? S.airconF.outdoorHumidity ?? ''
+    };
+    startActiveSession('aircon', d);
+  }));
+
   actions.appendChild(Btn('bgfull', '+ TV Hours', () => set({ modal: 'addTv', tvF: timedSessionDraft(S.tvF, 180) })));
   actions.appendChild(Btn('bgfull', 'Start TV', () => startActiveSession('tv')));
   actions.appendChild(Btn('bgfull', '+ Appliance', () => {

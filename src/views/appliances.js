@@ -61,6 +61,7 @@ export function renderAppliances() {
       const title = D(''); title.style.cssText = 'display:flex;align-items:center;gap:6px;min-width:0';
       title.appendChild(categoryBadge(a.category));
       title.appendChild(h('span', { style: 'font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, a.name));
+      if (a.watts) title.appendChild(h('span', { cls: 'bdg bdg-ap' }, `${a.watts}W`));
       left.appendChild(title);
       left.appendChild(h('div', { style: 'font-size:10.5px;color:#8a7260;margin-top:2px' }, `${applianceLabel(a)} · ${est.kwh.toFixed(3)} kWh/month`));
       left.appendChild(h('div', { style: 'font-size:10px;color:#8a7260;margin-top:2px' }, alwaysOnSinceLabel(a, data)));
@@ -83,6 +84,7 @@ export function renderAppliances() {
       const title = D(''); title.style.cssText = 'display:flex;align-items:center;gap:6px;min-width:0';
       title.appendChild(categoryBadge(a.category));
       title.appendChild(h('span', { style: 'font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, a.name));
+      if (a.watts) title.appendChild(h('span', { cls: 'bdg bdg-ap' }, `${a.watts}W`));
       left.appendChild(title);
       left.appendChild(h('div', { style: 'font-size:10.5px;color:#8a7260;margin-top:2px' }, `${applianceLabel(a)} · ${est.kwh.toFixed(3)} kWh/log`));
       if (a.note) left.appendChild(h('div', { style: 'font-size:10px;color:#8a7260;font-style:italic' }, a.note));

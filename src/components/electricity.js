@@ -39,8 +39,11 @@ export function renderCurrentlyOn(data=S.data){
       const est=activeEstimate(s,new Date(),data);
       const inner=D('row cr row-line');inner.style.gap='9px';
       const left=D('');left.style.cssText='flex:1;min-width:0';
-      left.appendChild(h('div',{style:'font-size:12.5px;font-weight:700'},s.name));
-      left.appendChild(h('div',{style:'font-size:10.5px;color:#8a7260'},`${s.type==='aircon'?'Aircon · '+airconModeLabel(s.mode,s.sleepMode):s.type==='tv'?'TV':'Appliance'} · on since ${fmtTime12(timeOf(new Date(s.startedAt)))} · ${durationLabel(est.minutes)}${s.outdoorTemp!==''&&s.outdoorTemp!=null?' · out '+s.outdoorTemp+'C':''}`));
+      const nRow=D('row');nRow.style.cssText='justify-content:flex-start;gap:6px';
+      nRow.appendChild(h('span',{style:'font-size:12.5px;font-weight:700'},s.name));
+      if(s.watts) nRow.appendChild(Sp('bdg bdg-ap',`${s.watts}W`));
+      left.appendChild(nRow);
+      left.appendChild(h('div',{style:'font-size:10.5px;color:#8a7260'},`${s.type==='aircon'?'Aircon · '+airconModeLabel(s.mode,s.sleepMode)+(s.tempC?' '+s.tempC+'°C':''):s.type==='tv'?'TV':'Appliance'} · on since ${fmtTime12(timeOf(new Date(s.startedAt)))} · ${durationLabel(est.minutes)}${s.outdoorTemp!==''&&s.outdoorTemp!=null?' · out '+s.outdoorTemp+'°C':''}`));
       const right=D('');right.style.cssText='text-align:right;flex-shrink:0';
       right.appendChild(h('div',{cls:'sf',style:'font-size:15px'},`${est.kwh.toFixed(3)} kWh`));
       right.appendChild(h('div',{style:'font-size:10px;color:#8a7260'},fmt2(est.cost)));

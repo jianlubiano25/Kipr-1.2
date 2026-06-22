@@ -45,7 +45,11 @@ export function renderDash() {
   hl.appendChild(balLine); hl.appendChild(bs);
   const eb = h('button', { cls: 'btn bg', style: 'color:rgba(255,255,255,.85);border-color:rgba(255,255,255,.25);padding:5px 10px;font-size:11px', onClick: () => set({ balInput: String(data.balance), modal: 'editBal' }) }, 'Edit');
   hrow.appendChild(hl); hrow.appendChild(eb); hcp.appendChild(hrow); // No margin-bottom here
-  const rrow = D('row'); rrow.style.marginBottom = '4px'; rrow.innerHTML = `<span style="font-size:10px;color:rgba(255,255,255,.45)">Runway vs 12 months</span><span style="font-size:10px;color:rgba(255,255,255,.45)">${runwayMonths.toFixed(1)} / 12</span>`; // Keep small margin
+  const rrow = D('row');
+  rrow.style.marginBottom = '4px';
+  rrow.appendChild(h('span',{style:'font-size:10px;color:rgba(255,255,255,.45)'},'Runway vs 12 months'));
+  rrow.appendChild(h('span',{style:'font-size:10px;color:rgba(255,255,255,.45)'},`${runwayMonths.toFixed(1)} / 12`));
+
   const rb = D('rbar'); const rf = D('rf'); rf.style.cssText = `width:${rwPct}%;background:${rwCol}`; rb.appendChild(rf);
   hcp.appendChild(rrow); hcp.appendChild(rb); hero.appendChild(hcp);
   topSection.appendChild(renderWeatherCard(data, { title: 'Weather', onRefresh: () => updateWeather(true) })); // Card margin handled by global .card
@@ -70,11 +74,51 @@ export function renderDash() {
 
   const eActs = D('dash-electricity-actions'); eActs.classList.add('dash-electricity-actions'); // Spacing via CSS
 
+  // Match the old app behavior:
+  // - Button opens a modal that has a start timer button (active session)
+  //   and a log usage button (manual log).
+  // - Aircon/TV open the corresponding "add*" modal.
+  // - Appliance opens the "logAppliance" modal.
+
   const eBtn = (label, fn, dis = false) => { const b = Btn('bgfull', label, fn, dis); b.style.cssText = 'width:100%;padding:10px 4px;font-size:12px'; return b; };
-  eActs.appendChild(eBtn('+ Aircon', () => { const mode = airconModeFrom(data.airconDefaultMode, data.airconDefaultSleepMode), w = data.weather || {}; set({ modal: 'addAircon', airconF: { ...timedSessionDraft(S.airconF, 480), mode, sleepMode: mode === 'sleep', tempC: data.airconDefaultTemp || S.airconF.tempC || '29', roomTemp: S.airconF.roomTemp || '', outdoorTemp: w.temp ?? S.airconF.outdoorTemp ?? '', outdoorFeels: w.apparent ?? S.airconF.outdoorFeels ?? '', outdoorHumidity: w.humidity ?? S.airconF.outdoorHumidity ?? '' } }); }));
-  eActs.appendChild(eBtn('+ TV', () => set({ modal: 'addTv', tvF: timedSessionDraft(S.tvF, 180) })));
-  eActs.appendChild(eBtn('+ Appliance', () => { const first = (data.appliances || []).find(a => !a.alwaysOn); set({ modal: 'logAppliance', applianceSessionF: applianceSessionDraft(first) }); }, !(data.appliances || []).some(a => !a.alwaysOn)));
+
+  eActs.appendChild(
+    eBtn('+ Aircon', () => {
+      const mode = airconModeFrom(data.airconDefaultMode, data.airconDefaultSleepMode);
+      const w = data.weather || {};
+      set({
+        modal: 'addAircon',
+        airconF: {
+          ...timedSessionDraft(S.airconF, 480),
+          mode,
+          sleepMode: mode === 'sleep',
+          tempC: data.airconDefaultTemp || S.airconF.tempC || '29',
+          roomTemp: S.airconF.roomTemp || '',
+          outdoorTemp: w.temp ?? S.airconF.outdoorTemp ?? '',
+          outdoorFeels: w.apparent ?? S.airconF.outdoorFeels ?? '',
+          outdoorHumidity: w.humidity ?? S.airconF.outdoorHumidity ?? ''
+        }
+      });
+    })
+  );
+
+  eActs.appendChild(
+    eBtn('+ TV', () => set({ modal: 'addTv', tvF: timedSessionDraft(S.tvF, 180) }))
+  );
+
+  eActs.appendChild(
+    eBtn(
+      '+ Appliance',
+      () => {
+        const first = (data.appliances || []).find(a => !a.alwaysOn);
+        set({ modal: 'logAppliance', applianceSessionF: applianceSessionDraft(first) });
+      },
+      !(data.appliances || []).some(a => !a.alwaysOn)
+    )
+  );
+
   electricStack.appendChild(eActs);
+
   const coffeeCard = renderCoffeeCounter(data); if (coffeeCard) electricStack.appendChild(coffeeCard);
   opsSection.appendChild(electricStack); // No margin-bottom here
   opsSection.appendChild(renderCurrentlyOn(data)); opsSection.style.marginBottom = '20px'; sec.appendChild(opsSection); // Explicit margin for the ops section container

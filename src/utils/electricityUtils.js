@@ -315,9 +315,11 @@ export function mealsDailyChart(monthKey=curMk(),data=S?.data){
   const [y,m]=monthKey.split('-').map(Number),days=daysInMonth(y,m-1),meals=(data?.transactions||[]).filter(t=>!isGroceryTx(t));
   return Array.from({length:days},(_,i)=>{
     const dd=new Date(y,m-1,i+1,12),ds=dateOf(dd),items=meals.filter(t=>t.date===ds),spend=items.reduce((s,t)=>s+t.amount,0);
-    return{ds,date:dd,label:String(i+1),items,count:items.length,spend,over:spend>(data?.dailyBudget||0)&&spend>0};
+    const homeCookedCount=items.filter(isHomeCookedTx).length;
+    return{ds,date:dd,label:String(i+1),items,count:items.length,homeCookedCount,spend,over:spend>(data?.dailyBudget||0)&&spend>0};
   });
 }
+
 export function electricityComparisonForMonth(monthKey,data=S?.data,actualKwh=0){
   const cycle=billCycleForMonth(monthKey,meralcoReadDay(data));
   const est=electricityCycleEstimate(cycle,data);

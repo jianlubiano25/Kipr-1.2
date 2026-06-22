@@ -14,12 +14,45 @@ export function renderModal() {
   const bg = D('mbg');
   bg.onclick = e => { if (e.target === bg) set({ modal: null }); };
   const box = D('mbox');
-  
+
   const M = (title, content) => { // Helper function for modal structure
     const tt = D('mt'); tt.textContent = title;
     box.appendChild(tt); box.appendChild(content);
     bg.appendChild(box); return bg;
   };
+
+  let startY = 0, currentY = 0, isDragging = false;
+  box.addEventListener('touchstart', e => {
+    if (box.scrollTop === 0) {
+      startY = e.touches[0].clientY;
+      currentY = startY;
+      isDragging = true;
+      box.style.transition = 'none';
+    }
+  }, { passive: true });
+  box.addEventListener('touchmove', e => {
+    if (!isDragging) return;
+    currentY = e.touches[0].clientY;
+    const dy = currentY - startY;
+    if (dy > 0) {
+      if (e.cancelable) e.preventDefault();
+      box.style.transform = `translateY(${dy}px)`;
+    } else {
+      isDragging = false;
+      box.style.transform = '';
+    }
+  }, { passive: false });
+  box.addEventListener('touchend', e => {
+    if (!isDragging) return;
+    isDragging = false;
+    box.style.transition = 'transform 0.2s ease-out';
+    const dy = currentY - startY;
+    if (dy > 100) {
+      set({ modal: null });
+    } else {
+      box.style.transform = '';
+    }
+  });
 
   if (S.modal === 'mealsMonthChart') {
     const monthKey = S.chartMonthKey || curMk(), data = S.data, chart = mealsDailyChart(monthKey, data), maxSpend = Math.max(...chart.map(x => x.spend), data.dailyBudget || 1, 1);
@@ -283,7 +316,7 @@ export function renderModal() {
     const isHomeCooked = S.txF.source === 'Home-cooked'; // No margin-bottom here
     if (!isHomeCooked) {
       const ai = Inp('', { type: 'number', inputmode: 'decimal', placeholder: 'e.g. 150', value: S.txF.amount });
-      ai.oninput = e => S.txF.amount = e.target.value; 
+      ai.oninput = e => S.txF.amount = e.target.value;
       c.appendChild(Fg('Subtotal (₱)', ai));
       const dii = Inp('', { type: 'number', inputmode: 'decimal', placeholder: 'Optional', value: S.txF.discount });
       dii.oninput = e => S.txF.discount = e.target.value;
@@ -294,7 +327,7 @@ export function renderModal() {
     const ni = Inp('', { type: 'text', placeholder: isGroceries ? 'e.g. Eggs, bread, chips' : isHomeCooked ? 'e.g. Pork sinigang, rice' : 'e.g. Pork sinigang', value: S.txF.note });
     ni.oninput = e => S.txF.note = e.target.value;
     c.appendChild(Fg(isGroceries ? 'Pantry Item Name' : isHomeCooked ? 'What did you eat?' : 'Notes (optional)', ni, isHomeCooked ? 'Required for no-expense meal logs.' : ''));
-    
+
     if (isGroceries) {
       const g2 = D('g2');
       const qfg = D('fg'); qfg.appendChild(h('label', { cls: 'fl' }, 'Qty'));
@@ -305,7 +338,7 @@ export function renderModal() {
       g2.appendChild(ufg); c.appendChild(g2);
       c.appendChild(Fg('Pantry Category', Sel(S.txF.stockCategory || 'Food Staples', SCATS, v => S.txF.stockCategory = v), 'This grocery will also be added to Pantry & Stocks.'));
     }
-    
+
     const di = Inp('', { type: 'date', value: S.txF.date });
     di.oninput = e => S.txF.date = e.target.value;
     c.appendChild(Fg('Date', di));
@@ -598,11 +631,14 @@ export function renderModal() {
       ));
     }
 
-    const sa = Btn('bp bfull', S.startActiveSession ? 'Start Aircon' : 'Log Aircon Session', S.startActiveSession ? () => { startActiveSession('aircon', S.airconF); set({ modal: null, startActiveSession: false }); } : addAircon);
-    sa.style.marginTop = '12px';
-    c.appendChild(sa);
-    return M('Aircon Session', c); // No margin-bottom here
+    const hasActiveAircon = (S.data.activeSessions || []).some(s => s.type === 'aircon');
+    const ca = Btn('bg', 'Cancel', () => set({ modal: null })); ca.style.flex = '1';
+    const st = Btn('bg', 'Start Timer', () => { startActiveSession('aircon', S.airconF); set({ modal: null }); }, hasActiveAircon); st.style.flex = '1.4';
+    const sa = Btn('bp', 'Log Usage', addAircon); sa.style.flex = '1.6'; c.appendChild(Mr(ca, st, sa)); return M('Log Aircon Usage', c);
   }
+
+
+
 
   // Add TV Session Modal
   if (S.modal === 'addTv') {
@@ -631,11 +667,14 @@ export function renderModal() {
       h('div', { style: 'font-size:10.5px;color:#8a7260' }, `${durationLabel(minutes)} · ${watts}W · @${d.meralcoRate}/kWh`)
     ));
 
-    const sa = Btn('bp bfull', S.startActiveSession ? 'Start TV' : 'Log TV Hours', S.startActiveSession ? () => { startActiveSession('tv'); set({ modal: null, startActiveSession: false }); } : addTv);
-    sa.style.marginTop = '12px';
-    c.appendChild(sa);
-    return M('TV Session', c); // No margin-bottom here
+    const hasActiveTv = (S.data.activeSessions || []).some(s => s.type === 'tv');
+    const ca = Btn('bg', 'Cancel', () => set({ modal: null })); ca.style.flex = '1';
+    const st = Btn('bg', 'Start Timer', () => { startActiveSession('tv'); set({ modal: null }); }, hasActiveTv); st.style.flex = '1.4';
+    const sa = Btn('bp', 'Log TV', addTv); sa.style.flex = '1.6'; c.appendChild(Mr(ca, st, sa)); return M('Log TV Usage', c);
   }
+
+
+
 
   // Log Appliance Session Modal
   if (S.modal === 'logAppliance') {
@@ -646,7 +685,7 @@ export function renderModal() {
     const selectedAppliance = appliances.find(a => String(a.id) === String(f.applianceId)) || appliances[0]; // Ensure selectedAppliance is always valid
 
     c.appendChild(Fg('Appliance', Sel(f.applianceId, appliances.map(a => a.id), v => { f.applianceId = v; set({ modal: 'logAppliance' }); })));
-    c.lastChild.querySelector('select').querySelectorAll('option').forEach(op => { const ap = appliances.find(a => a.id === op.value); if (ap) op.textContent = ap.name; });
+    c.lastChild.querySelector('select').querySelectorAll('option').forEach(op => { const ap = appliances.find(a => a.id === op.value); if (ap) op.textContent = ap.name + (ap.watts ? ` - ${ap.watts}W` : ''); });
     c.appendChild(Fg('Date', Inp('', { type: 'date', value: f.date, oninput: e => f.date = e.target.value })));
     c.appendChild(Fg('Start Time', Time12Control(f.start, v => f.start = v)));
     c.appendChild(Fg('End Time', Time12Control(f.end, v => f.end = v)));
@@ -668,11 +707,11 @@ export function renderModal() {
       ));
     }
 
-    const sa = Btn('bp bfull', 'Log Appliance Session', addApplianceUsage);
-    sa.style.marginTop = '12px';
-    c.appendChild(sa);
-    return M('Log Appliance Session', c); // No margin-bottom here
+    const ca = Btn('bg', 'Cancel', () => set({ modal: null })); ca.style.flex = '1';
+    const st = Btn('bg', 'Start Timer', () => { startActiveSession('appliance', { applianceId: f.applianceId }); set({ modal: null }); }); st.style.flex = '1.4';
+    const sa = Btn('bp', 'Log Appliance', addApplianceUsage); sa.style.flex = '1.6'; c.appendChild(Mr(ca, st, sa)); return M('Log Appliance', c);
   }
+
 
   // Settings Modal
   if (S.modal === 'settings') {
@@ -773,19 +812,19 @@ export function renderModal() {
     const activeId = S.fullUserData['meta|settings']?.data?.activeProfileId || S.data.activeProfileId; // No margin-bottom here
 
     c.appendChild(h('p', { style: 'font-size:12px;color:#8a7260;line-height:1.5;margin-bottom:20px' }, 'Create multiple profiles to isolate different sets of data (e.g., Personal vs Business). Global settings like themes and budgets are shared.')); // Adjusted margin-bottom
-    
+
     const list = D('card');
     profiles.forEach(p => {
       const isActive = p.id === activeId;
       const row = D('row cr row-line');
       row.style.padding = '10px 12px';
-      
+
       const left = D(''); left.style.cssText = 'flex:1;min-width:0';
       const nameLine = D('row'); nameLine.style.cssText = 'justify-content:flex-start;gap:8px;align-items:center';
       nameLine.appendChild(h('span', { style: `font-size:14px;font-weight:700;${isActive ? 'color:var(--p-text)' : ''}` }, p.name));
       if (isActive) nameLine.appendChild(Sp('tag-c', 'ACTIVE'));
       left.appendChild(nameLine);
-      
+
       const acts = D('row'); acts.style.cssText = 'gap:10px;margin-top:5px';
       if (!isActive) {
         acts.appendChild(h('button', { style: 'font-size:11px;color:var(--amber);background:none;border:none;padding:0;cursor:pointer;font-weight:600', onClick: () => switchProfile(p.id) }, 'Switch'));
@@ -799,7 +838,7 @@ export function renderModal() {
       list.appendChild(row);
     });
     c.appendChild(list);
-    
+
     const addBtn = Btn('bgfull', '+ Create New Profile', () => { const n = prompt('New Profile Name:'); if (n && n.trim()) addProfile(n.trim()); });
     addBtn.style.marginBottom = '20px'; // Adjusted margin-bottom
     c.appendChild(addBtn);

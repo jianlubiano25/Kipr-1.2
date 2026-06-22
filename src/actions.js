@@ -167,24 +167,23 @@ export function stopActiveSession(id){
   const now=new Date(),rate=S.data.meralcoRate||14.3345;
   setD(d=>{
     const activeSessions=(d.activeSessions||[]).filter(s=>s.id!==id);
-    const startDt=new Date(active.startedAt), startD=dateOf(startDt), endD=dateOf(now);
-    const dateFields = startD===endD ? {date:startD} : {date:startD, startDate:startD, endDate:endD};
-
     if(active.type==='aircon'){
       const mode=airconModeFrom(active.mode,active.sleepMode);
+      const startDt=new Date(active.startedAt);
       const session=airconSessionFromDates(startDt,now,mode,airconRates(d),active.tempC,active.outdoorTemp,d);
-      const entry={id:uid(),name:'Aircon',...session,startedAt:startDt.toISOString(),endedAt:now.toISOString(),hours:parseFloat(session.hours.toFixed(2)),kwh:session.kwh,cost:session.kwh*rate,rateAtTime:rate,ratesAtTime:airconRates(d),tempC:active.tempC??'',roomTemp:active.roomTemp??'',outdoorTemp:active.outdoorTemp??'',outdoorFeels:active.outdoorFeels??'',outdoorHumidity:active.outdoorHumidity??'',weatherAtTime:active.weatherAtStart||d.weather||null,formula:'two-phase-inverter', ...dateFields};
+      const entry={id:uid(),...session,startedAt:startDt.toISOString(),endedAt:now.toISOString(),hours:parseFloat(session.hours.toFixed(2)),kwh:session.kwh,cost:session.kwh*rate,rateAtTime:rate,ratesAtTime:airconRates(d),tempC:active.tempC??'',roomTemp:active.roomTemp??'',outdoorTemp:active.outdoorTemp??'',outdoorFeels:active.outdoorFeels??'',outdoorHumidity:active.outdoorHumidity??'',weatherAtTime:active.weatherAtStart||d.weather||null,formula:'two-phase-inverter'};
       return{...d,activeSessions,airconUsage:[entry,...(d.airconUsage||[])]};
     }
     const minutes=activeElapsedMinutes(active,now);
     if(active.type==='tv'){
-      const watts=parseFloat(active.watts)||parseFloat(d.tvWatts)||175,kwh=watts*(minutes/60)/1000;
-      const entry={id:uid(),name:'TV',...dateFields,start:timeOf(startDt),end:timeOf(now),startedAt:startDt.toISOString(),endedAt:now.toISOString(),minutes,hours:minutes/60,watts,kwh,cost:kwh*rate,rateAtTime:rate};
+      const startDt=new Date(active.startedAt),watts=parseFloat(active.watts)||parseFloat(d.tvWatts)||175,kwh=watts*(minutes/60)/1000;
+      const entry={id:uid(),date:dateOf(startDt),start:timeOf(startDt),end:timeOf(now),startedAt:startDt.toISOString(),endedAt:now.toISOString(),minutes,hours:minutes/60,watts,kwh,cost:kwh*rate,rateAtTime:rate};
       return{...d,activeSessions,tvUsage:[entry,...(d.tvUsage||[])]};
     }
     const ap=(d.appliances||[]).find(a=>a.id===active.applianceId);
     const watts=parseFloat(ap?.watts)||parseFloat(active.watts)||0,qty=parseFloat(ap?.qty)||parseFloat(active.qty)||1,kwh=watts*qty*(minutes/60)/1000;
-    const entry={id:uid(),applianceId:active.applianceId,name:ap?.name||active.name,category:ap?.category||active.category||'Others',...dateFields,start:timeOf(startDt),end:timeOf(now),startedAt:startDt.toISOString(),endedAt:now.toISOString(),minutes,hours:minutes/60,watts,qty,kwh,cost:kwh*rate,rateAtTime:rate};
+    const startDt=new Date(active.startedAt);
+    const entry={id:uid(),applianceId:active.applianceId,name:ap?.name||active.name,category:ap?.category||active.category||'Others',date:dateOf(startDt),start:timeOf(startDt),end:timeOf(now),startedAt:startDt.toISOString(),endedAt:now.toISOString(),minutes,hours:minutes/60,watts,qty,kwh,cost:kwh*rate,rateAtTime:rate};
     return{...d,activeSessions,applianceUsage:[entry,...(d.applianceUsage||[])]};
   });
 }
@@ -779,8 +778,10 @@ let liveTick=null;
 export function ensureLiveTick(){
   const hasActive=(S.data.activeSessions||[]).length>0;
   if(hasActive&&!liveTick)liveTick=setInterval(()=>{
-    if((S.data.activeSessions||[]).length&&!S.modal)set({}); // Trigger render via empty update
-  },30000);
+    if((S.data.activeSessions||[]).length&&!S.modal) set({}); // Trigger render via empty update
+  },5000);
+
+
   if(!hasActive&&liveTick){clearInterval(liveTick);liveTick=null;}
 }
 export function logCoffeeBoil(){
