@@ -39,29 +39,35 @@ style.textContent = `
 document.head.appendChild(style);
 
 let firstRender = true;
+function markSplashReady() {
+  const splash = document.getElementById('splash');
+  if (!splash || splash.classList.contains('splash-hide')) return;
+
+  // Prevent multiple hide attempts
+  if (splash.dataset.hiding === '1') return;
+  splash.dataset.hiding = '1';
+
+  const started = window.__kiprSplashStartedAt || Date.now();
+  // Keep splash visible at least ~600ms (avoids flash), but cap total wait.
+  const wait = Math.max(600 - (Date.now() - started), 0);
+
+  setTimeout(() => {
+    splash.classList.add('splash-hide');
+    document.body.classList.add('app-ready');
+    setTimeout(() => splash.remove(), 200);
+  }, wait);
+}
+
 export function render() {
   try {
     const theme = themeFromData(S.data);
     const darkMode = theme === 'dark';
     const nebulaMode = theme === 'nebula';
 
-    // Splash removal trigger - ensure this happens even if sub-renders fail
-    const splash = document.getElementById('splash');
-    if (splash && !splash.classList.contains('splash-hide') && !splash.dataset.hiding) {
-      splash.dataset.hiding = '1';
-      splash.classList.toggle('theme-dark', darkMode);
-      splash.classList.toggle('theme-nebula', nebulaMode);
+    // Do NOT hide the splash here.
+    // Splash is hidden from startApp() after initCloud() / auth session completion.
+    // (render() can fire multiple times and may happen before data is fully ready.)
 
-      // Fail-safe: some runtimes (Live Server reload, fetch blocking, etc.) can prevent render from
-      // being called; reduce the wait so refresh won't leave the user stuck.
-      const started = window.__kiprSplashStartedAt || Date.now();
-      const wait = Math.max(120 - (Date.now() - started), 0);
-      setTimeout(() => {
-        splash.classList.add('splash-hide');
-        document.body.classList.add('app-ready');
-        setTimeout(() => splash.remove(), 200);
-      }, wait);
-    }
 
     console.log('[Kipr] Rendering tab:', S.tab);
 
@@ -225,14 +231,36 @@ try {
 
   function startApp() {
     initializeState();
-    render(); // First render to trigger splash removal logic
 
-    // Delay cloud and weather to prevent blocking splash removal
-    setTimeout(() => {
-      initCloud();
-      ensureWeather();
-      setInterval(ensureWeather, 300000);
-    }, 800);
+    // First paint while splash stays visible.
+    render();
+
+    // Init cloud immediately, but keep splash visible until auth + first data load attempt completes.
+    const bootStart = Date.now();
+
+    // Start cloud init right away.
+    initCloud();
+
+    // Poll for “syncSaving” to drop (cloudLoad sets syncSaving=true).
+    const maxWait = 4500; // don’t let splash hang on slow networks forever
+    const tick = async () => {
+      try {
+        const done = !S?.syncSaving && (S.user !== undefined);
+        const age = Date.now() - bootStart;
+        // If user is known-null (signed out), or we finished initial cloud load, mark ready.
+        if (done || age > maxWait) {
+          markSplashReady();
+          return;
+        }
+      } catch {}
+      setTimeout(tick, 120);
+    };
+
+    setTimeout(tick, 200);
+
+    // Weather background updates; keep independent from splash.
+    ensureWeather();
+    setInterval(ensureWeather, 300000);
   }
 } catch (fatal) {
   console.error('FATAL BOOT ERROR:', fatal);

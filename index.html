@@ -42,7 +42,7 @@
   body.app-ready { background: #1b4d35; }
   #app { background: var(--app-bg); }
 
-  #splash {
+#splash {
     position: fixed;
     inset: 0;
     z-index: 9999;
@@ -51,6 +51,10 @@
     justify-content: center;
     background: var(--splash-bg);
     transition: opacity .32s ease, visibility .32s ease;
+  }
+  #splash img{
+    display:block;
+    margin:0 auto;
   }
   #splash.splash-hide {
     opacity: 0;
@@ -130,11 +134,16 @@
 </script>
 </head>
 <body>
-<div id="splash">
+<div id="splash" aria-hidden="true">
   <script>
     // 2. Select logo source before image element is even rendered
-    const isDark = document.documentElement.classList.contains('theme-dark') || document.documentElement.classList.contains('theme-nebula');
-    document.write('<img src="' + (isDark ? 'Kipr-logo-lightg.webp' : 'Kipr-logo-org.webp') + '" alt="kipr">');
+    // Use the SAME logo for dark + nebula per latest requirement.
+    const isDarkOrNebula =
+      document.documentElement.classList.contains('theme-dark') ||
+      document.documentElement.classList.contains('theme-nebula');
+    document.write(
+      '<img src="' + (isDarkOrNebula ? 'Kipr-logo-lightg.webp' : 'Kipr-logo-org.webp') + '" alt="kipr" draggable="false">'
+    );
   </script>
 </div>
 
