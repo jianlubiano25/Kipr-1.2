@@ -18,7 +18,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Inter:wght@400;500;600;700;800&family=Lora:wght@500;600&family=Playfair+Display:wght@600;700&display=swap"/>
 
-<link rel="apple-touch-icon" href="Kipr-icon.png"/>
+<link rel="apple-touch-icon" href="Kipr-icon.webp"/>
+<link rel="icon" href="Kipr-icon.webp" type="image/webp"/>
 
 
 <link rel="stylesheet" href="styles.css?v=20260610-nebula-theme"/>
@@ -128,15 +129,20 @@
 </head>
 <body>
 <div id="splash">
-  <script>
-    // 2. Select logo source before image element is even rendered
-    const isDark = document.documentElement.classList.contains('theme-dark') || document.documentElement.classList.contains('theme-nebula');
-    document.write('<img src="' + (isDark ? 'Kipr-logo-lightg.webp' : 'Kipr-logo-org.webp') + '" alt="kipr">');
-  </script>
+  <img id="splash-logo" src="Kipr-logo-org.webp" alt="kipr"/>
 </div>
+<script>
+  (function() {
+    try {
+      const isDark = document.documentElement.classList.contains('theme-dark') || document.documentElement.classList.contains('theme-nebula');
+      const logo = document.getElementById('splash-logo');
+      if (logo && isDark) logo.src = 'Kipr-logo-lightg.webp';
+    } catch(e) {}
+  })();
+</script>
 
 <div id="app"></div>
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2.50.3/dist/umd/supabase.js"></script>
 <script src="src/main.js?v=20260615-bills-sync-fix" type="module"></script>
 </body>
 </html>
