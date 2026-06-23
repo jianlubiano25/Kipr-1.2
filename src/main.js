@@ -48,13 +48,16 @@ function markSplashReady() {
   splash.dataset.hiding = '1';
 
   const started = window.__kiprSplashStartedAt || Date.now();
-  // Keep splash visible at least ~600ms (avoids flash), but cap total wait.
-  const wait = Math.max(600 - (Date.now() - started), 0);
+  // Keep splash visible at least 1200ms so it feels intentional (not a flash),
+  // but no longer than what the caller already enforced via maxWait.
+  const wait = Math.max(1200 - (Date.now() - started), 0);
 
   setTimeout(() => {
-    splash.classList.add('splash-hide');
+    // Apply app-ready to body, preserving existing theme classes
     document.body.classList.add('app-ready');
-    setTimeout(() => splash.remove(), 200);
+    splash.classList.add('splash-hide');
+    // Remove from DOM after fade completes
+    setTimeout(() => splash.remove(), 400);
   }, wait);
 }
 
@@ -86,9 +89,15 @@ export function render() {
 
     const appBg = nebulaMode ? '#0B0E1A' : darkMode ? '#15181e' : '#f4f0ea';
 
-    // Reactive theme enforcement for runtime changes
-    document.documentElement.style.backgroundColor = appBg;
-    document.body.style.backgroundColor = appBg;
+    // Reactive theme enforcement for runtime changes.
+    // Apply classes to BOTH <html> AND <body> so that:
+    //   - CSS vars defined on html.theme-* (in index.html <style>) resolve correctly
+    //   - CSS rules targeting body.theme-* (in styles.css) also apply
+    const htmlEl = document.documentElement;
+    htmlEl.classList.remove('theme-dark', 'theme-nebula');
+    if (darkMode) htmlEl.classList.add('theme-dark');
+    if (nebulaMode) htmlEl.classList.add('theme-nebula');
+
     document.body.classList.remove('theme-dark', 'theme-nebula');
     if (darkMode) document.body.classList.add('theme-dark');
     if (nebulaMode) document.body.classList.add('theme-nebula');
@@ -252,7 +261,7 @@ try {
           markSplashReady();
           return;
         }
-      } catch {}
+      } catch { }
       setTimeout(tick, 120);
     };
 

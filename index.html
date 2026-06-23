@@ -13,6 +13,77 @@
 <meta name="theme-color" content="#1b4d35"/>
 <meta name="description" content="kipr — Filipino household budget tracker for expenses, electricity, and pantry."/>
 
+<!--
+  iOS PWA Splash Screens (apple-touch-startup-image)
+  ─────────────────────────────────────────────────
+  iOS reads these at "Add to Home Screen" time. The inline script below
+  immediately replaces the light set with dark/nebula set if localStorage
+  tells us the user's stored theme, before the browser reads the links.
+
+  Three variants per device size:
+    • splash-light-*   → cream bg  (light theme)
+    • splash-dark-*    → dark bg   (dark theme)
+    • splash-nebula-*  → cosmic bg (nebula theme)
+
+  Device coverage:
+    iPhone SE                750×1334
+    iPhone 11/XR             828×1792
+    iPhone 13 mini          1125×2436
+    iPhone 14/15/16 base    1170×2532
+    iPhone 16 Pro           1206×2622
+    iPhone 14/15/16 Plus    1290×2796
+    iPhone 16 Pro Max       1320×2868
+    iPad mini 6             1488×2266
+    iPad Air 11"            1640×2360
+    iPad Pro 11"            1668×2420
+    iPad Air 13" / Pro 13"  2048×2732
+    iPad Pro 13" (M4)       2064×2752
+-->
+<script>
+  // Runs synchronously — sets window.__kiprSplashVariant before any link is written.
+  (function() {
+    try {
+      var s = localStorage.getItem('ipon-v5');
+      var theme = 'light';
+      if (s) {
+        var d = JSON.parse(s);
+        var meta = (d && d['meta|settings'] && d['meta|settings'].data) ? d['meta|settings'].data : d;
+        theme = (meta && meta.theme) ? meta.theme : (meta && meta.darkMode ? 'dark' : 'light');
+        if (['light','dark','nebula'].indexOf(theme) === -1) theme = 'light';
+      }
+      window.__kiprSplashVariant = theme;
+    } catch(e) { window.__kiprSplashVariant = 'light'; }
+  })();
+</script>
+<script>
+  // Write apple-touch-startup-image tags for the correct theme variant.
+  // Must be done via document.write so they exist when the parser sees them
+  // (iOS reads these tags during initial HTML parse).
+  (function() {
+    var v = window.__kiprSplashVariant || 'light';
+    var p = 'splashes/splash-' + v + '-';
+    var sizes = [
+      ['750x1334',   '(device-width:375px) and (device-height:667px) and (-webkit-device-pixel-ratio:2)'],
+      ['828x1792',   '(device-width:414px) and (device-height:896px) and (-webkit-device-pixel-ratio:2)'],
+      ['1125x2436',  '(device-width:375px) and (device-height:812px) and (-webkit-device-pixel-ratio:3)'],
+      ['1170x2532',  '(device-width:390px) and (device-height:844px) and (-webkit-device-pixel-ratio:3)'],
+      ['1206x2622',  '(device-width:402px) and (device-height:874px) and (-webkit-device-pixel-ratio:3)'],
+      ['1290x2796',  '(device-width:430px) and (device-height:932px) and (-webkit-device-pixel-ratio:3)'],
+      ['1320x2868',  '(device-width:440px) and (device-height:956px) and (-webkit-device-pixel-ratio:3)'],
+      ['1488x2266',  '(device-width:744px) and (device-height:1133px) and (-webkit-device-pixel-ratio:2)'],
+      ['1640x2360',  '(device-width:820px) and (device-height:1180px) and (-webkit-device-pixel-ratio:2)'],
+      ['1668x2420',  '(device-width:834px) and (device-height:1210px) and (-webkit-device-pixel-ratio:2)'],
+      ['2048x2732',  '(device-width:1024px) and (device-height:1366px) and (-webkit-device-pixel-ratio:2)'],
+      ['2064x2752',  '(device-width:1032px) and (device-height:1376px) and (-webkit-device-pixel-ratio:2)']
+    ];
+    var html = '';
+    for (var i = 0; i < sizes.length; i++) {
+      html += '<link rel="apple-touch-startup-image" href="' + p + sizes[i][0] + '.png" media="' + sizes[i][1] + ' and (orientation:portrait)">';
+    }
+    document.write(html);
+  })();
+</script>
+
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -24,25 +95,63 @@
 
 
 
-<link rel="stylesheet" href="styles.css?v=20260610-nebula-theme"/>
+<link rel="stylesheet" href="styles.css?v=20260624-ios-splash"/>
 
 <style>
   /*
-   * Body starts as the splash background so slow app boots do not flash black.
-   * Once app.js renders, body.app-ready restores the header green around the
-   * safe-area while #app content sits above it.
-   * The home-indicator strip (iPhone bottom) is covered by tabbar's
-   * padding-bottom: max(env(safe-area-inset-bottom,0px),0px) in CSS.
+   * Splash screen theming — must be resolved BEFORE any paint.
+   * Theme class is applied to <html> by the blocking inline script below.
+   * All vars are defined on html (not body) so they resolve immediately
+   * before body styles from styles.css can interfere.
+   *
+   * Light  → warm cream bg  + Kipr-logo-org.webp
+   * Dark   → dark slate bg  + Kipr-logo-lightg.webp
+   * Nebula → deep cosmic bg + Kipr-logo-lightg.webp
    */
-  :root { --app-bg: #f4f0ea; --splash-bg: #f5f5f5; }
-  .theme-dark { --app-bg: #15181e; --splash-bg: #15181e; }
-  .theme-nebula { --app-bg: #0B0E1A; --splash-bg: linear-gradient(to bottom right, rgba(81, 56, 226, 0.18), rgba(143, 22, 103, 0.12), rgba(244, 195, 122, 0.18)), #070A14; }
 
-  body { background: var(--splash-bg); }
-  body.app-ready { background: #1b4d35; }
-  #app { background: var(--app-bg); }
+  /* Default (light) — defined on :root so it applies without any class */
+  :root {
+    --splash-bg: #f4f0ea;
+    --app-bg:    #f4f0ea;
+  }
 
-#splash {
+  /* Dark theme — class on <html> set by inline script */
+  html.theme-dark {
+    --splash-bg: #15181e;
+    --app-bg:    #15181e;
+  }
+
+  /* Nebula theme — class on <html> set by inline script */
+  html.theme-nebula {
+    --splash-bg: #070A14;
+    --app-bg:    #070A14;
+  }
+
+  /* html/body both get the splash colour so there is NO flash regardless
+     of which element the browser paints first */
+  html, body {
+    background: var(--splash-bg) !important;
+  }
+
+  /* Nebula splash gets the full cosmic gradient (not flat dark) */
+  html.theme-nebula,
+  html.theme-nebula body,
+  html.theme-nebula #splash {
+    background:
+      radial-gradient(circle at 50% -10%, rgba(163,143,184,0.35), transparent 45%),
+      radial-gradient(circle at 10%  20%, rgba(88,62,160,0.25),   transparent 35%),
+      radial-gradient(circle at 90%   5%, rgba(212,175,55,0.15),  transparent 25%),
+      #070A14 !important;
+  }
+
+  /* Once JS has fully booted, body.app-ready matches the theme bg
+     (no longer a hard-coded green that would flash between themes) */
+  body.app-ready              { background: var(--splash-bg) !important; }
+  body.app-ready.theme-dark   { background: #15181e !important; }
+  body.app-ready.theme-nebula { background: #0B0E1A !important; }
+
+  /* ── Splash overlay ────────────────────────────────────────── */
+  #splash {
     position: fixed;
     inset: 0;
     z-index: 9999;
@@ -50,11 +159,7 @@
     align-items: center;
     justify-content: center;
     background: var(--splash-bg);
-    transition: opacity .32s ease, visibility .32s ease;
-  }
-  #splash img{
-    display:block;
-    margin:0 auto;
+    transition: opacity .36s ease, visibility .36s ease;
   }
   #splash.splash-hide {
     opacity: 0;
@@ -66,89 +171,109 @@
     height: auto;
     display: block;
     opacity: 1;
-    animation: splashLogoPop .38s cubic-bezier(.2,.9,.25,1.25) both;
+    animation: splashLogoPop .40s cubic-bezier(.2,.9,.25,1.25) both;
   }
   #splash.splash-hide img {
     animation: splashLogoOut .28s ease forwards;
   }
   @keyframes splashLogoPop {
-    0% { transform: scale(.9); }
-    62% { transform: scale(1.045); }
-    100% { transform: scale(1); }
+    0%   { transform: scale(.88); opacity: 0; }
+    40%  { opacity: 1; }
+    70%  { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
   }
   @keyframes splashLogoOut {
     from { opacity: 1; transform: translateY(0) scale(1); }
-    to { opacity: 0; transform: translateY(-3px) scale(.985); }
+    to   { opacity: 0; transform: translateY(-4px) scale(.97); }
   }
+
+  /* App content area */
+  #app { background: var(--app-bg); }
 </style>
 <script>
+  // ── Blocking: runs synchronously before FIRST PAINT ──────────────
+  // Sets theme class + correct splash background on <html> immediately
+  // so neither the browser nor CSS can show the wrong colour first.
   window.__kiprSplashStartedAt = Date.now();
 
-  // 1. Immediate Theme Resolver (Blocking)
-(function() {
+  (function() {
     try {
-      const SK = 'ipon-v5'; // Storage key from constants
-      const s = localStorage.getItem(SK);
-      if (!s) return;
-      const d = JSON.parse(s);
-      const theme = d?.theme || (d?.darkMode ? 'dark' : 'light');
-
-      // Always set both class and background deterministically.
-      // This is important for nebula splash logo/background selection.
-      document.documentElement.classList.remove('theme-dark', 'theme-nebula');
-      let isDark = false;
-      if (theme === 'dark') {
-        document.documentElement.classList.add('theme-dark');
-        document.documentElement.style.backgroundColor = '#15181e';
-        isDark = true;
-      } else if (theme === 'nebula') {
-        document.documentElement.classList.add('theme-nebula');
-        document.documentElement.style.backgroundColor = '#0B0E1A';
-        isDark = true;
-      } else {
-        document.documentElement.style.backgroundColor = '#f4f0ea';
+      var SK = 'ipon-v5';
+      var s = localStorage.getItem(SK);
+      var theme = 'light';
+      if (s) {
+        var d = JSON.parse(s);
+        // Support both old darkMode flag and new theme string
+        var meta = (d && d['meta|settings'] && d['meta|settings'].data) ? d['meta|settings'].data : d;
+        theme = meta && meta.theme ? meta.theme : (meta && meta.darkMode ? 'dark' : 'light');
+        if (['light','dark','nebula'].indexOf(theme) === -1) theme = 'light';
       }
 
-      // Preload ONLY the logo we are going to render in the splash.
-      // (Theme is app-controlled via localStorage, not prefers-color-scheme.)
-      const logo = isDark ? 'Kipr-logo-lightg.webp' : 'Kipr-logo-org.webp';
-      const l = document.createElement('link');
-      l.rel = 'preload';
-      l.as = 'image';
-      l.href = logo;
-      l.fetchPriority = 'high';
-      document.head.appendChild(l);
+      // Apply class to <html> — CSS vars in <style> above use html.theme-*
+      var html = document.documentElement;
+      html.classList.remove('theme-dark', 'theme-nebula');
+
+      var isDark = false;
+      if (theme === 'dark') {
+        html.classList.add('theme-dark');
+        isDark = true;
+      } else if (theme === 'nebula') {
+        html.classList.add('theme-nebula');
+        isDark = true;
+      }
+
+      // Also propagate to body immediately (belt-and-suspenders)
+      document.body && document.body.classList.remove('theme-dark', 'theme-nebula');
+      if (isDark && theme === 'dark')   document.body && document.body.classList.add('theme-dark');
+      if (isDark && theme === 'nebula') document.body && document.body.classList.add('theme-nebula');
+
+      // Pick the correct logo for this theme
+      var logo = isDark ? 'Kipr-logo-lightg.webp' : 'Kipr-logo-org.webp';
+
+      // Preload logo with high priority so it's ready when the splash renders
+      var lnk = document.createElement('link');
+      lnk.rel = 'preload'; lnk.as = 'image';
+      lnk.href = logo; lnk.fetchPriority = 'high';
+      document.head.appendChild(lnk);
+
+      // Store so the inline script inside #splash can read it reliably
+      html.dataset.splashLogo = logo;
+      html.dataset.splashTheme = theme;
     } catch (e) {}
+
+    // Standalone / PWA mode detection
+    try {
+      var sq = window.matchMedia('(display-mode: standalone)');
+      var setStandalone = function() {
+        document.documentElement.classList.toggle(
+          'app-standalone',
+          !!(window.navigator.standalone || sq.matches)
+        );
+      };
+      setStandalone();
+      sq.addEventListener && sq.addEventListener('change', setStandalone);
+    } catch(e) {}
   })();
 
-
-  const standaloneQuery = window.matchMedia('(display-mode: standalone)');
-  const setStandaloneMode = () => {
-    document.documentElement.classList.toggle('app-standalone', !!window.navigator.standalone || standaloneQuery.matches);
-  };
-  setStandaloneMode();
-  standaloneQuery.addEventListener?.('change', setStandaloneMode);
-
-  // Emergency Splash Fallback: Ensure splash is removed after 5 seconds no matter what
-  setTimeout(() => { const s = document.getElementById('splash'); if(s) s.classList.add('splash-hide'); }, 5000);
+  // Emergency fallback — remove splash after 6 s no matter what
+  setTimeout(function() {
+    var sp = document.getElementById('splash');
+    if (sp) { sp.classList.add('splash-hide'); }
+  }, 6000);
 </script>
 </head>
 <body>
 <div id="splash" aria-hidden="true">
   <script>
-    // 2. Select logo source before image element is even rendered
-    // Use the SAME logo for dark + nebula per latest requirement.
-    const isDarkOrNebula =
-      document.documentElement.classList.contains('theme-dark') ||
-      document.documentElement.classList.contains('theme-nebula');
-    document.write(
-      '<img src="' + (isDarkOrNebula ? 'Kipr-logo-lightg.webp' : 'Kipr-logo-org.webp') + '" alt="kipr" draggable="false">'
-    );
+    // Render splash logo — logo was selected by the blocking script above.
+    // Falls back to org logo (light) if nothing was stored.
+    var _logo = document.documentElement.dataset.splashLogo || 'Kipr-logo-org.webp';
+    document.write('<img src="' + _logo + '" alt="kipr" draggable="false" fetchpriority="high">');
   </script>
 </div>
 
 <div id="app"></div>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<script src="src/main.js?v=20260615-bills-sync-fix" type="module"></script>
+<script src="src/main.js?v=20260624-splash-fix" type="module"></script>
 </body>
 </html>

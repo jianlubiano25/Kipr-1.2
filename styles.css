@@ -795,8 +795,11 @@ body.theme-nebula.app-ready{background:#070A14}
 .wv.night.storm{background:linear-gradient(155deg,#0c1019,#273147)}
 .wv.night.fog{background:linear-gradient(155deg,#1b222d,#3b4450)}
 .wv.night.snow{background:linear-gradient(155deg,#172033,#394963)}
-.wv.night .wv-sun,.wv.night .wv-glow{opacity:0}
+.wv.night .wv-sun,.wv.night .wv-glow{opacity:0;visibility:hidden;}
+/* Sun rays are rendered via .wv-sun span; hide them too to prevent any bleed onto the moon. */
+.wv.night .wv-sun span{display:none;}
 .wv.night .wv-moon,.wv.night .wv-stars{opacity:1}
+
 .wv.night .wv-cloud{background:linear-gradient(180deg,#c8d0db,#7f8998);box-shadow:0 8px 16px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.25)}
 .wv.night .wv-cloud:before{background:#c8d0db}.wv.night .wv-cloud:after{background:linear-gradient(180deg,#c8d0db,#8b95a4)}
 .wv.cloud .wv-cloud,.wv.rain .wv-cloud,.wv.storm .wv-cloud,.wv.fog .wv-cloud,.wv.snow .wv-cloud{opacity:1}
