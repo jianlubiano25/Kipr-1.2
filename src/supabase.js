@@ -1,6 +1,16 @@
 import { SUPABASE_URL, SUPABASE_KEY, LIVE_SYNC_TABLE, LIVE_COLLECTIONS, LIVE_PENDING_KEY, SCHEMA_VERSION, SK, GLOBAL_SETTINGS_KEYS, PROFILE_VAL_KEYS } from './constants.js';
-import { S, set, sd, INIT, mergeMissingBillHistory, migrate, preferredBillsMonth, getActiveProfileData } from './state.js'; 
+import { S, set, sd, ld, INIT, mergeMissingBillHistory, migrate, preferredBillsMonth, getActiveProfileData } from './state.js'; 
 import { jclone, normalizeBalance, mergeDaily24hApplianceLogs, getGlobalMetaSettings } from './utils/electricityUtils.js';
+import { syncProfileValsToFull, mergeProfileRow, flatToNamespaced, isFlatExport } from './utils/dataFormat.js';
+
+/** Map legacy un-namespaced collections (e.g. `transactions`) to profile keys (`main:transactions`). */
+function normalizeLiveCollectionKey(collection) {
+  if (!collection || collection === 'meta' || collection === 'profile') return collection;
+  if (String(collection).includes(':')) return collection;
+  if (LIVE_COLLECTIONS.includes(collection)) return `main:${collection}`;
+  return collection;
+}
+
 export let supa=null;
 export let cloudSaveTimer=null;
 export let cloudLoadedFor='';
@@ -124,35 +134,61 @@ export function rowsFromData(data,full=false,previous=null){
       : [];
 
   if (deletedIds.length) {
-    // Derive active profile from the FULL dataset, since this function may be called
-    // while active profile view differs (e.g. during imports/restores).
-    const activeProfileId = isFullUserData
-      ? (data['meta|settings']?.data?.activeProfileId || 'main')
-      : (data.activeProfileId || 'main');
+    // IMPORTANT: _mergedDaily24hDeletedIds does not encode which profile namespace
+    // the deleted applianceUsage rows belong to.
+    //
+    // During full-data sync/load, `activeProfileId` may differ at the time rowsFromData()
+    // is executed. If we delete from the wrong namespace, state reconstruction after
+    // refresh can drift (including computed balance).
+    //
+    // Strategy:
+    // - When syncing full namespaced data, derive candidate profile namespaces from
+    //   the presence of `<profileId>:applianceUsage` keys in `data`.
+    // - If we can't match precisely (because the post-merge array no longer contains
+    //   the deleted IDs), send deletes to all candidate namespaces.
+
+    const profileIdsFromFull = isFullUserData
+      ? new Set(Object.keys(data)
+          .filter(k => k.includes(':applianceUsage'))
+          .map(k => String(k).split(':')[0]))
+      : new Set([activeProfileId]);
+
+    const profileIds = Array.from(profileIdsFromFull);
 
     deletedIds.forEach(id => {
-      rows.push(liveRow(`${activeProfileId}:applianceUsage`, String(id), null, true, now));
+      const targets = (() => {
+        if (!isFullUserData) return [activeProfileId];
+        const candidates = profileIds.filter(pId => {
+          const key = `${pId}:applianceUsage`;
+          const arr = Array.isArray(data?.[key]) ? data[key] : [];
+          return arr.some(u => String(u?.id) === String(id));
+        });
+        return candidates.length ? candidates : profileIds;
+      })();
+      targets.forEach(pId => {
+        rows.push(liveRow(`${pId}:applianceUsage`, String(id), null, true, now));
+      });
     });
   }
   return rows.filter(Boolean);
 }
-export function applyLiveRows(base,rows){
-  // `base` here is expected to be S.fullUserData or an empty object.
-  // It should not be jclone(INIT) as INIT is for a single profile.
+export function applyLiveRows(base, rows) {
+  // `base` is S.fullUserData (namespaced) or {} for a cold cloud rebuild.
   let next = { ...base };
   const latest = new Map();
 
   rows.forEach(r => {
-    const key = r.collection + '|' + r.item_id;
+    if (!r?.collection) return;
+    const col = normalizeLiveCollectionKey(r.collection);
+    const key = `${col}|${r.item_id}`;
     const ts = Date.parse(r.updated_at || '') || 0;
     const old = latest.get(key);
     const oldTs = Date.parse(old?.updated_at || '') || 0;
     if (!old || ts >= oldTs) {
-      latest.set(key, r);
+      latest.set(key, { ...r, collection: col });
     }
   });
 
-  // Process meta settings
   const metaRow = latest.get('meta|settings');
   if (metaRow) {
     if (!metaRow.deleted && metaRow.data) {
@@ -162,44 +198,35 @@ export function applyLiveRows(base,rows){
     }
   }
 
-  // Process incoming profile values (balance, etc.)
   latest.forEach(r => {
-    if (r.collection === 'profile') {
-      const pId = r.item_id;
-      if (!r.deleted && r.data) {
-        PROFILE_VAL_KEYS.forEach(vk => { if (r.data[vk] !== undefined) next[`${pId}:${vk}`] = r.data[vk]; });
-      }
-    }
+    if (r.collection !== 'profile') return;
+    mergeProfileRow(next, base, r);
   });
 
-  // Collect all unique namespaced collection keys present in the incoming rows
   const affectedCollectionKeys = new Set();
   latest.forEach(r => {
-    if (r.collection !== 'meta|settings' && r.collection !== 'profile') {
-      let finalCollectionKey = r.collection;
-      // Handle old, un-namespaced collections
-      if (!r.collection.includes(':') && LIVE_COLLECTIONS.includes(r.collection)) {
-        finalCollectionKey = `main:${r.collection}`;
-      }
-      affectedCollectionKeys.add(finalCollectionKey);
-    }
+    if (r.collection === 'meta' || r.collection === 'profile') return;
+    affectedCollectionKeys.add(r.collection);
   });
 
-  // For each affected collection, rebuild it from the latest rows
+  // Merge row updates into existing collections (safe for single-row live sync).
   affectedCollectionKeys.forEach(collectionKey => {
-    const itemsForThisCollection = [];
+    const existing = Array.isArray(next[collectionKey]) ? next[collectionKey] : [];
+    const byId = new Map(
+      existing.filter(x => x?.id).map(x => [String(x.id), x])
+    );
     latest.forEach(r => {
-      let rCollectionKey = r.collection;
-      if (!r.collection.includes(':') && LIVE_COLLECTIONS.includes(r.collection)) rCollectionKey = `main:${r.collection}`;
-      if (rCollectionKey === collectionKey && !r.deleted && r.data !== null) itemsForThisCollection.push(r.data);
+      if (r.collection !== collectionKey) return;
+      const itemId = String(r.item_id);
+      if (r.deleted || r.data === null) byId.delete(itemId);
+      else if (r.data) byId.set(itemId, r.data);
     });
-    next[collectionKey] = itemsForThisCollection;
+    next[collectionKey] = Array.from(byId.values());
   });
 
-  // _mergedDaily24hDeletedIds is an internal flag, should not be part of fullUserData directly
-  // It's handled by rowsFromData when generating delete rows.
-  return next; // Return the full namespaced data, migration happens on active profile data
+  return next;
 }
+
 export function syncTimeLabel(value){
   const t=Date.parse(value||'');
   if(isNaN(t))return'Never';
@@ -318,8 +345,6 @@ export async function cloudSave(data=S.fullUserData,previous=null,createSnapshot
   }
 }
 export async function cloudLoad(force = false){
-  // Prevent prompts/replacements while a sync/save is in progress
-  // (Sync & Snapshot calls cloudSave which sets syncSaving=true.)
   if(S?.syncSaving) return;
   if (cloudSaveTimer) return;
   const s = supa;
@@ -328,42 +353,44 @@ export async function cloudLoad(force = false){
   if(!force && cloudLoadedFor===S.user.id)return;
   cloudLoadedFor=S.user.id;
   set({ syncSaving: true, syncErr: '' });
+
+  // Auth INITIAL_SESSION can clear in-memory fullUserData before cloudLoad runs.
+  // Recover from localStorage so merge/sync never starts from an empty shell.
+  const localStored = ld();
+  if (!S.fullUserData?.['meta|settings']?.data && localStored?.['meta|settings']?.data) {
+    S.fullUserData = localStored;
+  }
+
   const {data:rows,error}=await s.from(LIVE_SYNC_TABLE).select('collection,item_id,data,deleted,updated_at').eq('user_id',S.user.id).order('updated_at',{ascending:false});
   if(error){cloudLoadedFor=''; set({ syncSaving: false, syncErr: error.message }); return;}
 
   if(rows?.length){
-    // 1. Build the data state as it exists purely in the cloud
-    const cloudFullData = jclone(applyLiveRows({}, rows));
-    const hasLocal = (S.data.transactions?.length > 0 || S.data.homeExpenses?.length > 0 || (S.data.applianceUsage || []).length > 0 || (S.data.activeSessions || []).length > 0 || !!S.data.modifiedAt);
+    const localBase = (localStored?.['meta|settings']?.data ? localStored : null)
+      || (S.fullUserData?.['meta|settings']?.data ? S.fullUserData : null)
+      || {};
 
-    const isAlreadySynced = !!S.fullUserData?.syncedAt;
-
-    // Long-term fix: once we successfully sync cloud for this account on this device,
-    // never prompt again—treat cloud as the source of truth according to the stored local marker.
-    // In reference-old-app.js, it just applied the cloud data seamlessly.
-    let finalFullData = cloudFullData;
-
-    if (!isAlreadySynced && hasLocal) {
-      // Just seamlessly merge local and cloud data to prevent constant prompts
-      const localRows = rowsFromData(S.fullUserData, true);
-      const mergedRows = [...rows, ...localRows];
-      finalFullData = applyLiveRows(S.fullUserData, mergedRows);
-    }
+    // Always merge cloud rows into local snapshot (Kipr 1 pattern).
+    // Cold cloud-only rebuild drops balance — legacy Kipr never synced profile rows.
+    let finalFullData = localBase?.['meta|settings']?.data
+      ? applyLiveRows(localBase, rows)
+      : jclone(applyLiveRows({}, rows));
 
     const activeProfileData = jclone(getActiveProfileData(finalFullData));
     const merged = mergeMissingBillHistory(activeProfileData, jclone(S.data));
-    finalFullData = { ...finalFullData }; // ensure not holding frozen refs
-    const activeProfileData2 = jclone(merged);
-    
+    syncProfileValsToFull(finalFullData, merged);
     
     liveApplying = true; 
     S.fullUserData = finalFullData;
-    S.data = activeProfileData; 
+    S.data = merged; 
     sd(S.fullUserData); 
     liveApplying = false;
 
-    set({ fullUserData: { ...S.fullUserData }, data: activeProfileData, syncSaving: false, syncErr: '', billsMk: preferredBillsMonth(activeProfileData, S.billsMk) });
-    await cloudSave(S.fullUserData); 
+    set({ fullUserData: { ...S.fullUserData }, data: merged, syncSaving: false, syncErr: '', billsMk: preferredBillsMonth(merged, S.billsMk) });
+
+    // Only push back when appliance-log merge produced cloud deletes (matches Kipr 1).
+    if (merged._mergedDaily24hDeletedIds?.length) {
+      await cloudSave(S.fullUserData);
+    }
   }else {
     const hasLocal = (S.data.transactions?.length > 0 || S.data.homeExpenses?.length > 0 || (S.data.applianceUsage || []).length > 0);
     const isAlreadySynced = !!S.data.syncedAt;
@@ -389,6 +416,7 @@ export function startLiveSync(){
       liveApplying=true;
       const nextFull = applyLiveRows(S.fullUserData, [row]);
       const nextActive = getActiveProfileData(nextFull);
+      syncProfileValsToFull(nextFull, nextActive);
       sd(nextFull);
       set({ data: nextActive, fullUserData: nextFull });
       liveApplying=false;
@@ -404,7 +432,14 @@ export async function initCloud(){
   // 2. Setup listener for auth events (sign in, sign out, etc)
 supa.auth.onAuthStateChange((event,session)=>{
     const user=session?.user||null;
-    if (user !== S.user) set({ user, syncErr: '', syncSaving: false, fullUserData: {} }); // Clear fullUserData on user change
+    const prevId = S.user?.id || null;
+    const nextId = user?.id || null;
+    if (prevId !== nextId) {
+      const keepFullUserData = !prevId && !!nextId;
+      set({ user, syncErr: '', syncSaving: false, fullUserData: keepFullUserData ? S.fullUserData : {} });
+    } else if (user !== S.user) {
+      set({ user, syncErr: '', syncSaving: false });
+    }
 
     // After OAuth, Supabase can leave tokens in the URL hash.
     // Strip the hash (and query params that might contain oauth artifacts)
@@ -533,7 +568,9 @@ export async function restoreFromSnapshot(snapshotId) {
     let restoredFullUserData = rows[0].data;
     
     // Migrate legacy flat snapshot to namespaced format if necessary
-    if (restoredFullUserData && (!restoredFullUserData['meta|settings'] || !restoredFullUserData['meta|settings'].data)) {
+    if (isFlatExport(restoredFullUserData)) {
+      restoredFullUserData = flatToNamespaced(restoredFullUserData);
+    } else if (restoredFullUserData && (!restoredFullUserData['meta|settings'] || !restoredFullUserData['meta|settings'].data)) {
       const legacy = { ...restoredFullUserData };
       const namespaced = {};
       delete legacy._mergedDaily24hDeletedIds;
@@ -547,6 +584,7 @@ export async function restoreFromSnapshot(snapshotId) {
       // Replace FULL state
       S.fullUserData = restoredFullUserData;
       S.data = getActiveProfileData(restoredFullUserData);
+      syncProfileValsToFull(S.fullUserData, S.data);
 
       // Important: perform full-save so it writes the FULL namespaced structure back.
       await cloudSave(S.fullUserData, currentFullUserData, true);

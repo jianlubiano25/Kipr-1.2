@@ -7,7 +7,8 @@ import {
   applianceAlwaysOnEstimate, usageCostInRange, usageKwhInRange, airconModeFrom, airconModeLabel,
   timedSessionDraft, applianceSessionDraft, renderWeatherCard, electricityDailyChart,
   electricityCycleEstimate, meralcoKwhForCycle, applianceLabel,
-  alwaysOnSinceLabel, meterAudit, usageDateRange, auditApplianceKwhInRange, cycleDays
+  alwaysOnSinceLabel, meterAudit, usageDateRange, auditApplianceKwhInRange, cycleDays,
+  billMonthFromCycle, meralcoRateForMonth
 } from '../utils/electricityUtils.js';
 import {
   turnOffAlwaysOnAppliance, openEdit, delAppliance,

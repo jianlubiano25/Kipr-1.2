@@ -1,0 +1,18 @@
+{
+  "name": "Kipr",
+  "short_name": "Kipr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1b4d35",
+  "theme_color": "#1b4d35",
+  "icons": [
+    {
+      "src": "Kipr-icon.webp",
+      "sizes": "333x333",
+      "type": "image/webp",
+      "purpose": "any"
+    }
+  ]
+}
+

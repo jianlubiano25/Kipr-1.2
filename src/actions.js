@@ -17,6 +17,7 @@ export async function openRestorePicker() {
 }
 export const manualSync = () => cloudSave(S.fullUserData, null, true);
 export { cloudSave, cloudSignIn, cloudSignOut, cloudLoad, supa, liveChannel, syncLabel, syncTimeLabel };
+import { flatToNamespaced, isFlatExport, syncProfileValsToFull } from './utils/dataFormat.js';
 import { MODELS, SCAN_PROMPT, LABEL_DEFAULTS, AIRCON_MODEL_PROFILE, DEFAULT_WEATHER, DEFAULT_AIRCON_RATES, LIVE_COLLECTIONS, PROFILE_VAL_KEYS } from './constants.js';
 export function addTx(){
   const isFreeMeal=S.txF.source==='Home-cooked';
@@ -349,43 +350,8 @@ export function importData(e) {
   reader.onload = async ev => {
     try{
       let importedData = JSON.parse(ev.target.result);
-      // Ensure imported data is in the fullUserData format
-      if (importedData && !importedData['meta|settings'] && (importedData.transactions || importedData.balance !== undefined)) {
-        // Assume old format, convert to namespaced for 'main' profile and clean root
-        const oldFlatData = { ...importedData }; // Clone the original flat data
-
-        const newFullUserData = {
-          'meta|settings': {
-            data: {
-              activeProfileId: 'main',
-              profiles: [{ id: 'main', name: 'Primary' }]
-            }
-          }
-        };
-
-        // Move LIVE_COLLECTIONS to 'main' namespace
-        LIVE_COLLECTIONS.forEach(col => {
-          if (oldFlatData[col]) {
-            newFullUserData[`main:${col}`] = oldFlatData[col];
-            delete oldFlatData[col]; // Remove from oldFlatData once moved
-          }
-        });
-        // Move PROFILE_VAL_KEYS to 'main' namespace
-        PROFILE_VAL_KEYS.forEach(key => {
-          if (oldFlatData[key] !== undefined) {
-            newFullUserData[`main:${key}`] = oldFlatData[key];
-            delete oldFlatData[key];
-          }
-        });
-
-        // Remaining items in oldFlatData are global settings for meta|settings.data
-        Object.assign(newFullUserData['meta|settings'].data, oldFlatData);
-
-        // Ensure critical profile metadata exists after conversion
-        newFullUserData['meta|settings'].data.profiles = newFullUserData['meta|settings'].data.profiles || [{ id: 'main', name: 'Primary' }];
-        newFullUserData['meta|settings'].data.activeProfileId = newFullUserData['meta|settings'].data.activeProfileId || 'main';
-
-        importedData = newFullUserData; // Use the newly constructed fullUserData
+      if (isFlatExport(importedData)) {
+        importedData = flatToNamespaced(importedData);
       }
 
       // Strip sync metadata so cloudLoad triggers a fresh merge/replace prompt if user signs in
@@ -429,13 +395,18 @@ export function importData(e) {
         // Apply timestamps and structure correctly
         const touchedData = touchData(importedData);
         const touchedActive = getActiveProfileData(touchedData);
+        syncProfileValsToFull(touchedData, touchedActive);
 
         sd(touchedData);
-        // Force immediate local update to prevent UI flickers or reverts, and ensure reactivity
         S.fullUserData = touchedData;
         S.data = touchedActive;
         
-        await cloudSave(touchedData, null, true); 
+        if (isUser) {
+          await cloudSave(touchedData, null, true);
+        } else {
+          touchedData.syncedAt = null;
+          sd(touchedData);
+        }
         
         set({ tab: 'dash', drawerOpen: false, modal: null, viewMk: latest, billsMk: latest, rptMk: latest, billDraft: {}, data: touchedActive, fullUserData: touchedData, syncDisabled: false });
         setTimeout(() => alert('Data imported successfully!'), 100);
@@ -792,6 +763,7 @@ export async function updateWeather(force=false){
   if(S.weatherLoading||(!force&&!weatherStale(S.data)))return;
   const ws=weatherSettings(S.data);
   if(ws.provider!=='open-meteo')return;
+  if(!Number.isFinite(ws.lat)||!Number.isFinite(ws.lon))return;
   try{
     set({ weatherLoading: true });
     const url=`https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(ws.lat)}&longitude=${encodeURIComponent(ws.lon)}&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,wind_gusts_10m,weather_code,is_day,uv_index,cloud_cover,precipitation,visibility,surface_pressure&timezone=Asia%2FManila&forecast_days=1`;

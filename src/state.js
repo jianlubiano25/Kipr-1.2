@@ -1,6 +1,7 @@
 import { SCHEMA_VERSION, DEFAULT_APPLIANCES, DEFAULT_WEATHER, LABEL_DEFAULTS, AIRCON_MODEL_PROFILE, SK, GK, BK, DEFAULT_AIRCON_RATES, LIVE_COLLECTIONS, GLOBAL_SETTINGS_KEYS, PROFILE_VAL_KEYS } from './constants.js';
 import { dateOf, curMk, uid, mk } from './utils/dateUtils.js';
 import { normalizeBalance, mergeDaily24hApplianceLogs, noteParts, expenseTotal, jclone, getGlobalMetaSettings } from './utils/electricityUtils.js';
+import { flatToNamespaced, isFlatExport, readBalanceSnapshot, syncProfileValsToFull } from './utils/dataFormat.js';
 import { touchData, queueCloudSave, liveApplying } from './supabase.js';
 
 let updateListener = () => {};
@@ -8,7 +9,7 @@ export function onStateUpdate(fn) { updateListener = fn; }
 
 export const INIT={
   schemaVersion:SCHEMA_VERSION,
-  balance:0,balanceBase:0,transactions:[],homeExpenses:[],priceItems:[],stocks:[],bills:[],dailyBudget:380,groceryBudget:5000,
+  balance:0,balanceBase:null,transactions:[],homeExpenses:[],priceItems:[],stocks:[],bills:[],dailyBudget:380,groceryBudget:5000,
   airconUsage:[],tvUsage:[],meralcoRate:14.3345,monthlyRates:{},
   airconStartupRate:1.20,airconSleepDayRate:0.62,airconSleepNightRate:0.48,airconEcoDayRate:0.55,airconEcoNightRate:0.42,airconDayRate:0.85,airconNightRate:0.58,airconDefaultSleepMode:true,airconDefaultMode:'sleep',airconDefaultTemp:'29',
   airconModel:AIRCON_MODEL_PROFILE.model,airconTempBaseline:29,airconTempStepPct:7,airconOutdoorBaseline:30,airconOutdoorStepPct:2.5,
@@ -41,6 +42,7 @@ export function getActiveProfileData(fullData) {
       activeData[key] = fullData[namespacedKey];
     }
   });
+  readBalanceSnapshot(metaSettings, activeData);
   activeData.schemaVersion = SCHEMA_VERSION;
   activeData.syncedAt = fullData.syncedAt; // Inherit syncedAt from full data
   activeData.modifiedAt = fullData.modifiedAt; // Inherit modifiedAt from full data
@@ -222,11 +224,8 @@ export function setD(fn){
     const namespacedColKey = `${activeProfileId}:${colName}`;
     updatedFullUserData[namespacedColKey] = newActiveProfileData[colName] || []; // Ensure it's an array
   });
-  // Update namespaced values for the active profile (balance, etc.)
-  PROFILE_VAL_KEYS.forEach(key => {
-    updatedFullUserData[`${activeProfileId}:${key}`] = newActiveProfileData[key];
-  });
-  
+  syncProfileValsToFull(updatedFullUserData, newActiveProfileData);
+
   S.fullUserData = updatedFullUserData; // Update the global full user data
   S.data = newActiveProfileData; // Update S.data (the active view)
   sd(S.fullUserData); // Save the entire full user data to local storage (this was missing in the original setD)
@@ -316,15 +315,8 @@ export function ld(){
     if (!rawData) return {};
     // Check if it's already in the multi-profile namespaced format
     if (rawData && rawData['meta|settings'] && rawData['meta|settings'].data) return rawData;
-    // If not, wrap the old flat data into the 'main' profile. Use LIVE_COLLECTIONS for robustness.
-    const legacy = { ...rawData };
-    const namespaced = {};
-    // Clean up internal flags that shouldn't be namespaced
-    delete legacy._mergedDaily24hDeletedIds;
-    LIVE_COLLECTIONS.forEach(k => { if(Array.isArray(legacy[k])) { namespaced[`main:${k}`] = legacy[k]; delete legacy[k]; } });
-    PROFILE_VAL_KEYS.forEach(k => { if(legacy[k] !== undefined) { namespaced[`main:${k}`] = legacy[k]; delete legacy[k]; } });
-    const out = { 'meta|settings': { data: { ...legacy, activeProfileId: 'main', profiles: [{id: 'main', name: 'Primary'}] } }, ...namespaced };
-    return out;
+    if (isFlatExport(rawData)) return flatToNamespaced(rawData);
+    return rawData;
   }catch(e){console.error("Error loading local data:", e); return {};}
 }
 export function sd(fullUserData){try{localStorage.setItem(SK,JSON.stringify(fullUserData));}catch{}}
