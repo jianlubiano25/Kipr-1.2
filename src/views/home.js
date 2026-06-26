@@ -64,7 +64,20 @@ export function renderHome() {
     items.sort((a, b) => b.date.localeCompare(a.date)).forEach(item => {
       const inner = D('row cr row-line');
       inner.style.justifyContent = 'flex-start'; inner.style.gap = '9px';
-      if (S.multiHome) inner.appendChild(h('input', { type: 'checkbox', checked: S.selHome.has(item.id), style: 'width:18px;height:18px;flex:0 0 18px', onClick: e => { e.stopPropagation(); toggleSel('home', item.id); } }));
+if (S.multiHome) {
+        const checked = S.selHome.has(item.id);
+        const cb = h('input', {
+          type: 'checkbox',
+          checked,
+          style: 'width:18px;height:18px;flex:0 0 18px;accent-color:#1b4d35',
+          onClick: e => {
+            e.stopPropagation();
+            const nextChecked = e.target.checked;
+            if (nextChecked !== S.selHome.has(item.id)) toggleSel('home', item.id);
+          }
+        });
+        inner.appendChild(cb);
+      }
       const left = D(''); left.style.cssText = 'flex:1;min-width:0';
       const nm = D('row-main-sm'); nm.textContent = item.name;
       const qty = parseFloat(item.qty) || 1, unitPrice = parseFloat(item.unitPrice) || item.amount;

@@ -6,6 +6,7 @@ import {
 } from './utils/electricityUtils.js';
 import { dateOf, timeOf, timePlus, minutesBetween, curMk, uid, minsOfDay, mk } from './utils/dateUtils.js'; 
 import { h } from './utils/domHelpers.js';
+import { exportKipr1FlatFromFull } from './utils/kipr1Export.js';
 import { fmt } from './utils/formatters.js';
 import { resizeImage } from './utils/imageUtils.js';
 import { cloudSave, cloudSignIn, cloudSignOut, cloudLoad, supa, liveChannel, syncLabel, syncTimeLabel, fetchSyncSessions, liveApplying, queueCloudSave, touchData, wipeCloudRecords } from './supabase.js';
@@ -344,6 +345,16 @@ export function exportData(){
   const a=h('a',{href:URL.createObjectURL(blob),download:`kipr-${dateOf(new Date())}.json`});
   a.click();
 }
+
+
+export function exportDataKipr1(){
+  const activeProfileId = S.fullUserData?.['meta|settings']?.data?.activeProfileId || 'main';
+  const flat = exportKipr1FlatFromFull(S.fullUserData, activeProfileId);
+  const blob=new Blob([JSON.stringify(flat,null,2)],{type:'application/json'});
+  const a=h('a',{href:URL.createObjectURL(blob),download:`kipr1-${dateOf(new Date())}.json`});
+  a.click();
+}
+
 export function importData(e) {
   const reader = new FileReader();
   set({ syncDisabled: true }); 

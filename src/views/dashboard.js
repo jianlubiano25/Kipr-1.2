@@ -194,7 +194,7 @@ export function renderDash() {
     ...(data.airconUsage || []).map(u => ({ ...u, _logType: 'aircon', category: 'Aircon' })),
     ...(data.tvUsage || []).map(u => ({ ...u, _logType: 'tv', name: data.tvModel || 'TV', category: 'TV' }))
   ];
-  const applianceLogs = allApplianceLogs.sort((a, b) => String(logSortDate(b)).localeCompare(String(logSortDate(a)))).slice(0, 7);
+  const applianceLogs = allApplianceLogs.sort((a, b) => String(logSortDate(b)).localeCompare(String(logSortDate(a)))).slice(0, 10);
   if (applianceLogs.length) { // No margin-bottom here
     const ac = D('card dash-recent-appliances-card'); ac.appendChild(Object.assign(D('section-hdr'), { innerHTML: '<span class="lbl">Recent Appliance Logs</span>' }));
     applianceLogs.forEach(u => {

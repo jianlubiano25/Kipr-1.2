@@ -1,7 +1,7 @@
 import { S, set, setD } from '../state.js';
 import { h, D, iconEl, Sel, Btn, Inp } from '../utils/domHelpers.js';
 import { themeFromData } from '../utils/electricityUtils.js';
-import { syncLabel, exportData, importData, openSettings, switchProfile, openManageProfiles } from '../actions.js';
+import { syncLabel, exportData, exportDataKipr1, importData, openSettings, switchProfile, openManageProfiles } from '../actions.js';
 import { APP_VERSION, SCHEMA_VERSION } from '../constants.js';
 
 export function renderDrawer({ darkMode, nebulaMode } = {}) {
@@ -92,8 +92,10 @@ export function renderDrawer({ darkMode, nebulaMode } = {}) {
   items.appendChild(drItem('reports', 'Reports', 'Monthly spending breakdown', () => set({ tab: 'reports', drawerOpen: false }), S.tab === 'reports'));
   items.appendChild(drItem('stocks', 'Pantry & Stocks', 'Track what you have at home', () => set({ tab: 'stocks', drawerOpen: false }), S.tab === 'stocks'));
   items.appendChild(D('dr-sep'));
-  const exp = drItem('upload', 'Export Data', 'Save backup to file', exportData); items.appendChild(exp);
+  const exp = drItem('upload', 'Export Data (Kipr 1.2)', 'Save Kipr 1.2 backup', exportData); items.appendChild(exp);
+  const exp1 = drItem('upload', 'Export Data (Kipr 1)', 'Save Kipr 1 backup (current profile)', exportDataKipr1); items.appendChild(exp1);
   const imp = drItem('download', 'Import Data', 'Restore from backup', () => {
+
     set({ drawerOpen: false }); // Close drawer immediately to free up the UI for dialogs
     const fi = h('input', { type: 'file', accept: '.json', onchange: e => { importData(e); e.target.value = ''; } });
     fi.click();

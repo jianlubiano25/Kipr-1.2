@@ -157,17 +157,40 @@ export let S = {
 };
 export const scrollByTab={};
 
-export function rememberContentScroll(){
+function restoreContentScroll(){
   const cur=document.querySelector('#app .sec');
-  if(cur?.dataset?.tab)scrollByTab[cur.dataset.tab]=cur.scrollTop;
+  if(!cur)return;
+  const tab=cur.dataset?.tab || S.tab || 'unknown';
+  const viewKey = S.viewMk || S.billsMk || S.rptMk || '';
+  const key = viewKey ? `${tab}::${viewKey}` : tab;
+  if(scrollByTab[key]!=null) cur.scrollTop = scrollByTab[key];
 }
 
+export function rememberContentScroll(){
+  // Store current scroll position only.
+  const cur = document.querySelector('#app .sec');
+  if(!cur) return;
+  const tab = cur.dataset?.tab || S.tab || 'unknown';
+  const viewKey = S.viewMk || S.billsMk || S.rptMk || '';
+  const key = viewKey ? `${tab}::${viewKey}` : tab;
+  if(cur.scrollTop!=null) scrollByTab[key]=cur.scrollTop;
+}
+
+
+
 export function set(p){
+  // Record scroll position before the UI changes.
+  // (Restore happens on the next render via render cycle.)
   rememberContentScroll();
+
   if(typeof p==='function') Object.assign(S,p(S)); // Ensure function is called
   else Object.assign(S,p);
+
+  // Restore scroll position after state change to avoid “jump to top”.
+  restoreContentScroll();
   updateListener();
 }
+
 export function initializeState() {
   try {
     const today = dateOf(new Date());

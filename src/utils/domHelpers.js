@@ -164,50 +164,103 @@ export function swRow(content,onEdit,onDel,onOff){
   const sc=D('swc');sc.appendChild(content);
   wrap.appendChild(acts);wrap.appendChild(sc);
   const AW=(onOff?62:0)+(onEdit?62:0)+62;
+
+  // Gesture state
   let sx=0,sy=0,gk=false,ih=false,mouseDown=false,mouseDragged=false;
+
+  const setOpenState = (open)=>{
+    if(open){
+      sc.style.transition='transform .15s ease';
+      sc.style.transform=`translateX(-${AW}px)`;
+      openSw=wrap;
+    }else{
+      sc.style.transition='transform .15s ease';
+      sc.style.transform='';
+      if(openSw===wrap) openSw=null;
+    }
+  };
+
   const moveSwipe=(x,y,prevent)=>{
     const dx=x-sx,dy=y-sy;
     if(!gk&&(Math.abs(dx)>4||Math.abs(dy)>4)){ih=Math.abs(dx)>Math.abs(dy);gk=true;}
     if(!ih)return;
     if(prevent)prevent();
+
     const isOpen=openSw===wrap;
+    // If already open, allow dragging back towards center (dx positive)
     const base=isOpen?-AW:0;
     const off=Math.max(Math.min(base+dx,0),-AW);
     sc.style.transform=`translateX(${off}px)`;
+
     if(dx<0&&openSw&&openSw!==wrap)closeSwipe();
   };
+
   const endSwipe=(x)=>{
     if(!ih)return;
     sc.style.transition='transform .15s ease';
     const dx=x-sx;
     const isOpen=openSw===wrap;
-    if(!isOpen&&dx<-40){sc.style.transform=`translateX(-${AW}px)`;openSw=wrap;}
-    else if(isOpen&&dx>40){sc.style.transform='';openSw=null;}
-    else if(!isOpen){sc.style.transform='';}
-    else{sc.style.transform=`translateX(-${AW}px)`;}
+    if(!isOpen&&dx<-40){setOpenState(true);}
+    else if(isOpen&&dx>40){setOpenState(false);}
+    else if(!isOpen){setOpenState(false);}
+    else{setOpenState(true);}
   };
-  sc.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;gk=false;ih=false;sc.style.transition='none';},{passive:true});
+
+  sc.addEventListener('touchstart',e=>{
+    // On touch start, only start gesture if not already opened by a different row
+    if(openSw && openSw!==wrap) closeSwipe();
+    sx=e.touches[0].clientX;sy=e.touches[0].clientY;
+    gk=false;ih=false;
+    mouseDragged=false;
+    sc.style.transition='none';
+  },{passive:true});
+
   sc.addEventListener('touchmove',e=>{
     moveSwipe(e.touches[0].clientX,e.touches[0].clientY,()=>e.preventDefault());
   },{passive:false});
+
   sc.addEventListener('touchend',e=>{
     endSwipe(e.changedTouches[0].clientX);
+    // If gesture was tiny, do a clean reset
+    if(Math.abs(e.changedTouches[0].clientX - sx) < 8 && openSw===wrap) setOpenState(false);
   },{passive:true});
+
   sc.addEventListener('pointerdown',e=>{
     if(e.pointerType!=='mouse'||e.button!==0)return;
-    sx=e.clientX;sy=e.clientY;gk=false;ih=false;mouseDown=true;mouseDragged=false;sc.style.transition='none';sc.setPointerCapture?.(e.pointerId);
+    if(openSw && openSw!==wrap) closeSwipe();
+    sx=e.clientX;sy=e.clientY;gk=false;ih=false;
+    mouseDown=true;mouseDragged=false;
+    sc.style.transition='none';
+    sc.setPointerCapture?.(e.pointerId);
   });
+
   sc.addEventListener('pointermove',e=>{
     if(!mouseDown||e.pointerType!=='mouse')return;
     moveSwipe(e.clientX,e.clientY,()=>e.preventDefault());
     if(ih)mouseDragged=true;
   });
+
   sc.addEventListener('pointerup',e=>{
     if(!mouseDown||e.pointerType!=='mouse')return;
-    mouseDown=false;endSwipe(e.clientX);sc.releasePointerCapture?.(e.pointerId);
+    mouseDown=false;
+    endSwipe(e.clientX);
+    sc.releasePointerCapture?.(e.pointerId);
   });
+
   sc.addEventListener('pointercancel',e=>{if(e.pointerType==='mouse')mouseDown=false;});
-  sc.addEventListener('click',e=>{if(mouseDragged){e.preventDefault();e.stopPropagation();mouseDragged=false;}},true);
+
+  sc.addEventListener('click',e=>{
+    if(mouseDragged){
+      e.preventDefault();
+      e.stopPropagation();
+      mouseDragged=false;
+    }
+  },true);
+
+  // Also ensure when the row is removed/rebuilt it never leaves an open swipe.
+  // (Avoids “closes after initial swipe” on some rerenders.)
+  wrap.addEventListener('focusout',()=>{if(openSw===wrap) setOpenState(false);});
+
   return wrap;
 }
 
