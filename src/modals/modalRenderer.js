@@ -360,6 +360,35 @@ export function renderModal() {
     c.appendChild(Mr(ca, sa)); return M('Add Price', c);
   }
 
+  if (S.modal === 'addAppliance') {
+    const c = D('');
+    c.appendChild(Fg('Name', Inp('', { type: 'text', value: S.applianceF.name || '', oninput: e => S.applianceF.name = e.target.value })));
+    c.appendChild(Fg('Category', Sel(S.applianceF.category || 'Others', applianceCategories(S.data), v => S.applianceF.category = v, 'compact-select')));
+
+    const g2 = D('g2');
+    g2.appendChild(Fg('Watts (W)', Inp('', { type: 'number', value: S.applianceF.watts || '', oninput: e => S.applianceF.watts = e.target.value })));
+    g2.appendChild(Fg('Qty', Inp('', { type: 'number', value: S.applianceF.qty || '1', oninput: e => S.applianceF.qty = e.target.value })));
+    c.appendChild(g2);
+
+    const ar = D('row'); ar.style.cssText = 'justify-content:flex-start;gap:8px;margin:3px 0 12px';
+    const acb = h('input', { type: 'checkbox', checked: !!S.applianceF.alwaysOn, style: 'width:18px;height:18px' });
+    acb.onchange = e => { S.applianceF.alwaysOn = e.target.checked; set({}); };
+    ar.appendChild(acb);
+    ar.appendChild(h('span', { style: 'font-size:12.5px;font-weight:700;color:#3a2818' }, 'Runs 24/7'));
+    c.appendChild(ar);
+
+    if (!S.applianceF.alwaysOn) {
+      c.appendChild(Fg('Default Minutes / Log', Inp('', { type: 'number', value: S.applianceF.sessionMinutes || 60, oninput: e => S.applianceF.sessionMinutes = e.target.value })));
+    }
+
+    c.appendChild(Fg('Note', Inp('', { type: 'text', value: S.applianceF.note || '', oninput: e => S.applianceF.note = e.target.value })));
+
+    const ca = Btn('bg', 'Cancel', () => set({ modal: null })); ca.style.flex = '1';
+    const sa = Btn('bp', 'Add Appliance', addAppliance); sa.style.flex = '2';
+    c.appendChild(Mr(ca, sa));
+    return M('Add Appliance', c);
+  }
+
   if (S.modal === 'addStock') {
     const c = D('');
     const ni = Inp('', { type: 'text', placeholder: 'e.g. Rice, eggs, shampoo', value: S.stockF.name }); ni.oninput = e => S.stockF.name = e.target.value; ni.focus(); c.appendChild(Fg('Item Name', ni));
