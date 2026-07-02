@@ -303,7 +303,11 @@ export function openSettings(){
     weatherLat:String(ws.lat),
     weatherLon:String(ws.lon),
     weatherElevation:String(ws.elevation),
-    weatherApiKey:ws.apiKey||''
+    weatherApiKey:ws.apiKey||'',
+    // Text scaling (from active profile data)
+    textScaleHeading: S.data?.textScaleHeading ?? 1,
+    textScaleSubtitle: S.data?.textScaleSubtitle ?? 1,
+    textScaleBody: S.data?.textScaleBody ?? 1
   }});
 }
 export function openListsDefaults(){
@@ -336,7 +340,31 @@ export function saveSettings(){
   const next={provider:f.weatherProvider||'open-meteo',label:f.weatherLabel||DEFAULT_WEATHER.label,lat:parseFloat(f.weatherLat)||DEFAULT_WEATHER.lat,lon:parseFloat(f.weatherLon)||DEFAULT_WEATHER.lon,elevation:parseFloat(f.weatherElevation)||DEFAULT_WEATHER.elevation,apiKey:f.weatherApiKey||''};
   const changed=old.lat!==next.lat||old.lon!==next.lon||old.provider!==next.provider;
   const theme=['light','dark','nebula'].includes(f.theme)?f.theme:(f.darkMode?'dark':'light');
-  setD(d=>({...d,theme,darkMode:theme==='dark',weatherProvider:next.provider,weatherLabel:next.label,weatherLat:next.lat,weatherLon:next.lon,weatherElevation:next.elevation,weatherApiKey:next.apiKey,weather:changed?null:d.weather}));
+
+  // Persist text scaling in the global CSS variables.
+  const textScaleHeading = parseFloat(f.textScaleHeading);
+  const textScaleSubtitle = parseFloat(f.textScaleSubtitle);
+  const textScaleBody = parseFloat(f.textScaleBody);
+
+  setD(d=>({
+    ...d,
+    theme,
+    darkMode:theme==='dark',
+    weatherProvider:next.provider,
+    weatherLabel:next.label,
+    weatherLat:next.lat,
+    weatherLon:next.lon,
+    weatherElevation:next.elevation,
+    weatherApiKey:next.apiKey,
+    weather:changed?null:d.weather,
+
+    // These values are already stored inside S.data (active profile data)
+    // and mapped to CSS vars in main render via root style vars.
+    textScaleHeading: Number.isFinite(textScaleHeading) ? textScaleHeading : (d.textScaleHeading ?? 1),
+    textScaleSubtitle: Number.isFinite(textScaleSubtitle) ? textScaleSubtitle : (d.textScaleSubtitle ?? 1),
+    textScaleBody: Number.isFinite(textScaleBody) ? textScaleBody : (d.textScaleBody ?? 1)
+  }));
+
   set({geminiKey:key,modal:null,weatherErr:''});
   setTimeout(()=>updateWeather(true),50);
 }

@@ -51,5 +51,7 @@ export const GLOBAL_SETTINGS_KEYS = [
   'tvModel', 'tvWatts',
   'dailyBudget', 'groceryBudget', // budgets are global settings
   'stockAlertDismissed', // global flag
-  'theme', 'darkMode' // theme settings
+  'theme', 'darkMode', // theme settings
+  // Text scaling (global UI accessibility)
+  'textScaleHeading', 'textScaleSubtitle', 'textScaleBody'
 ];

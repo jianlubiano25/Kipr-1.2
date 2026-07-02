@@ -98,6 +98,22 @@ export function render() {
     if (darkMode) htmlEl.classList.add('theme-dark');
     if (nebulaMode) htmlEl.classList.add('theme-nebula');
 
+    // Text scaling (settings-driven) — keep in sync with S.data.
+    // Note: styles.css uses html{ --ts-heading/... } vars.
+    const headingScale = (S.data?.textScaleHeading ?? 1);
+    const subtitleScale = (S.data?.textScaleSubtitle ?? 1);
+    const bodyScale = (S.data?.textScaleBody ?? 1);
+
+    // If these are undefined (or not yet present in active profile data),
+    // fall back to INIT defaults (1x).
+    const safeHeading = Number.isFinite(Number(headingScale)) ? Number(headingScale) : 1;
+    const safeSubtitle = Number.isFinite(Number(subtitleScale)) ? Number(subtitleScale) : 1;
+    const safeBody = Number.isFinite(Number(bodyScale)) ? Number(bodyScale) : 1;
+    // Ensure numeric vars even if values come in as strings.
+    htmlEl.style.setProperty('--text-scale-heading', String(safeHeading));
+    htmlEl.style.setProperty('--text-scale-subtitle', String(safeSubtitle));
+    htmlEl.style.setProperty('--text-scale-body', String(safeBody));
+
     document.body.classList.remove('theme-dark', 'theme-nebula');
     if (darkMode) document.body.classList.add('theme-dark');
     if (nebulaMode) document.body.classList.add('theme-nebula');
@@ -108,6 +124,7 @@ export function render() {
     root.classList.remove('theme-dark', 'theme-nebula');
     if (darkMode) root.classList.add('theme-dark');
     if (nebulaMode) root.classList.add('theme-nebula');
+
 
     firstRender = false;
 

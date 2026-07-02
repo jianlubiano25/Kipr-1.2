@@ -795,6 +795,40 @@ export function renderModal() {
 
     const gk = Inp('', { type: 'password', placeholder: 'AIza...', value: f.geminiKey ?? '' }); gk.oninput = e => f.geminiKey = e.target.value; c.appendChild(Fg('Gemini API Key', gk, 'Stored only in this browser.'));
     c.appendChild(Fg('Weather Provider', Sel(f.weatherProvider || 'open-meteo', ['open-meteo'], v => f.weatherProvider = v), 'Open-Meteo does not need an API key.'));
+
+    // Text scaling controls (responsive via CSS variables)
+    const ts = D('soft-panel');
+    ts.style.marginTop = '12px';
+    ts.appendChild(h('div', { cls: 'lbl' }, 'Text Size'));
+    const tsSub = h('div', { style: 'font-size:10.5px;color:#8a7260;margin-top:2px;line-height:1.45' }, 'Scale Heading / Subtitle / Body text.');
+    ts.appendChild(tsSub);
+
+    const addScaleRow = (label, key) => {
+      const row = D('');
+      row.style.cssText = 'margin-top:10px;display:grid;grid-template-columns:1fr;gap:6px;';
+      const r1 = D('row'); r1.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;';
+      r1.appendChild(h('div', { style: 'font-size:12px;font-weight:700;color:#3a2818' }, label));
+      const val = h('div', { cls: 'sf', style: 'font-size:14px;color:#1b4d35' }, String(f[key] ?? 1));
+      r1.appendChild(val);
+      row.appendChild(r1);
+      const slider = h('input', { type: 'range', min: '0.85', max: '1.25', step: '0.05', value: String(f[key] ?? 1) });
+      slider.oninput = e => {
+        f[key] = parseFloat(e.target.value);
+        val.textContent = String(f[key]);
+        // Tell state.set() to avoid scroll capture/restore while dragging.
+        set({ isSliderScaling: true, modal: 'settings' });
+      };
+      slider.onchange = () => set({ isSliderScaling: false, modal: 'settings' });
+      row.appendChild(slider);
+      row.appendChild(h('div', { style: 'font-size:10px;color:#8a7260;line-height:1.35' }, ''));
+      return row;
+    };
+
+    ts.appendChild(addScaleRow('Heading', 'textScaleHeading'));
+    ts.appendChild(addScaleRow('Subtitle', 'textScaleSubtitle'));
+    ts.appendChild(addScaleRow('Body', 'textScaleBody'));
+    c.appendChild(ts);
+
     const wl = Inp('', { type: 'text', value: f.weatherLabel ?? '' }); wl.oninput = e => f.weatherLabel = e.target.value; c.appendChild(Fg('Location Label', wl));
     const g2 = D('g2');
     const latFg = D('fg'); latFg.appendChild(h('label', { cls: 'fl' }, 'Latitude')); const lati = Inp('', { type: 'number', inputmode: 'decimal', step: '0.00001', value: f.weatherLat ?? '' }); lati.oninput = e => f.weatherLat = e.target.value; latFg.appendChild(lati); g2.appendChild(latFg);

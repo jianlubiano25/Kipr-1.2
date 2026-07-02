@@ -17,6 +17,11 @@ export const INIT={
   weatherProvider:DEFAULT_WEATHER.provider,weatherLabel:'',weatherLat:'',weatherLon:'',weatherElevation:'',weatherApiKey:'',weather:null,
   labels:LABEL_DEFAULTS,
   tvModel:'Xiaomi TV A Pro 65 2025',tvWatts:175,meralcoReadDay:12,appliances:DEFAULT_APPLIANCES,applianceUsage:[],activeSessions:[],stockAlertDismissed:'', // These are part of INIT for a single profile
+  // UI text scaling (global; applied via CSS variables)
+  // These are also set into the active profile data object.
+  textScaleHeading:1,
+  textScaleSubtitle:1,
+  textScaleBody:1,
   activeProfileId: 'main', // Default for initial load, will be overwritten by meta|settings
   profiles: [{id: 'main', name: 'Primary'}], // Default for initial load, will be overwritten by meta|settings
 };
@@ -181,13 +186,20 @@ export function rememberContentScroll(){
 export function set(p){
   // Record scroll position before the UI changes.
   // (Restore happens on the next render via render cycle.)
-  rememberContentScroll();
+  // Avoid capturing/restoring scroll while the user is dragging the
+  // Settings text-size sliders (this causes the “screen jumps up”).
+  const suppressScrollRestore = p && typeof p === 'object' && (
+    p.modal === 'settings' ||
+    p.isSliderScaling
+  );
+
+  if(!suppressScrollRestore) rememberContentScroll();
 
   if(typeof p==='function') Object.assign(S,p(S)); // Ensure function is called
   else Object.assign(S,p);
 
   // Restore scroll position after state change to avoid “jump to top”.
-  restoreContentScroll();
+  if(!suppressScrollRestore) restoreContentScroll();
   updateListener();
 }
 
